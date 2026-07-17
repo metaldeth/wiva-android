@@ -1,6 +1,7 @@
 # AVD `evoq_android_11` — runbook
 
-Профиль для разработки/ smoke под **Android 11 / API 30**, близкий к офисной плате Evoq (`k3568_a`).
+Профиль для разработки/smoke: экран как у исходного AVD **`evoq`**,
+а версия ОС как у офисной платы Evoq (`k3568_a`) — **Android 11 / API 30**.
 
 ## Environment
 
@@ -16,7 +17,8 @@
 | Name | **`evoq_android_11`** |
 | API | **30** (Android 11) |
 | ABI | **x86_64** (emulator) |
-| Screen | **1080×1920**, portrait, **160 dpi** |
+| Screen | **768×1024**, portrait, **120 dpi** |
+| RAM / CPU | **2048 MB / 4 cores** |
 | ADB serial (typical) | **`emulator-5556`** |
 
 ## Physical board reference (not an emulator)

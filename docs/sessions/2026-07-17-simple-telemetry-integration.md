@@ -8,7 +8,7 @@
 - Документация клиента: `docs/SIMPLE_TELEMETRY_MVP_ANDROID.md`; ссылка в `AGENTS.md`.
 - Functional debug E2E на AVD **`wiva`**: enroll → **WIVA-000002** **ONLINE**, heartbeat, подтверждение в БД prod.
 - Обнаружена физическая плата: `192.168.50.163:5555` (`k3568_a`, Android 11/API 30, arm64, 1080×1920@160, 2 GB).
-- Создан AVD **`evoq_android_11`** (`F:\AndroidAVD`, `emulator-5556`, Android 11/API 30 x86_64, 1080×1920@160) — runbook: `docs/AVD_EVOQ_ANDROID_11.md`.
+- Создан AVD **`evoq_android_11`** (`F:\AndroidAVD`, `emulator-5556`, Android 11/API 30 x86_64, экран исходного `evoq` 768×1024@120) — runbook: `docs/AVD_EVOQ_ANDROID_11.md`.
 
 ## Decisions
 
