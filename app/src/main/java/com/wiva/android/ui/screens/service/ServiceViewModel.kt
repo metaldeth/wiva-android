@@ -25,6 +25,9 @@ import com.wiva.android.services.drink.WivaDrinkPreparingService
 import com.wiva.android.data.network.NetworkTrafficEntry
 import com.wiva.android.data.network.NetworkTrafficLogger
 import com.wiva.android.data.remote.telemetry.ConnectionState
+import com.wiva.android.data.remote.telemetry.mvp.MvpTelemetryUrlResolver
+import com.wiva.android.data.remote.telemetry.mvp.SerialAlreadyBoundException
+import com.wiva.android.data.remote.telemetry.mvp.SerialNumberUtils
 import com.wiva.android.domain.model.TelemetryConfig
 import com.wiva.android.hardware.scanner.WivaScannerTrafficLogger
 import com.wiva.android.hardware.scanner.ScannerManager
@@ -154,6 +157,9 @@ data class ServiceUiState(
     val telemetryRealm: String = "",
     val telemetryPingPongEnabled: Boolean = false,
     val telemetryRegKey: String = "",
+    val telemetryUseMvpProtocol: Boolean = true,
+    val telemetrySerialConflict: Boolean = false,
+    val telemetryRebindConfirmVisible: Boolean = false,
     val telemetrySerial: String = "",
     val telemetryBusy: Boolean = false,
     val telemetryBanner: String? = null,
@@ -1098,13 +1104,21 @@ constructor(
                 _state.update {
                     it.copy(
                         telemetryApiUrl = t.apiUrl,
-                        telemetryWsUrl = t.wsUrl,
+                        telemetryWsUrl =
+                            if (t.useMvpProtocol) {
+                                MvpTelemetryUrlResolver.displayWsUrl(t.apiUrl, t.wsUrl)
+                            } else {
+                                t.wsUrl.ifBlank { TelemetryConfig.DEFAULT_WS_URL }
+                            },
                         telemetryKeycloakUrl = t.keycloakUrl,
                         telemetryRealm = t.keycloakRealm,
+                        telemetryUseMvpProtocol = t.useMvpProtocol,
                         telemetryPingPongEnabled =
                             configRepository.get(JsonStoreKeys.TELEMETRY_PING_PONG_ENABLED) == "true",
                         telemetryRegKey = r.regKey,
                         telemetrySerial = r.serialNumber,
+                        telemetrySerialConflict = false,
+                        telemetryRebindConfirmVisible = false,
                     )
                 }
             }.onFailure { Timber.e(it, "loadTelemetryForm") }
@@ -1116,11 +1130,12 @@ constructor(
             telemetryService.connectionState.collect { s ->
                 val label =
                     when (s) {
-                        ConnectionState.Connecting -> "WS: подключение…"
-                        ConnectionState.Connected -> "WS: подключено"
+                        ConnectionState.Connecting -> if (_state.value.telemetryUseMvpProtocol) "MVP WS: подключение…" else "WS: подключение…"
+                        ConnectionState.Connected ->
+                            if (_state.value.telemetryUseMvpProtocol) "MVP WS: ONLINE" else "WS: подключено"
                         is ConnectionState.Disconnected ->
                             if (s.retryInMs > 0) {
-                                "WS: отключено, переподключение через ${s.retryInMs} ms"
+                                "WS: переподключение через ${s.retryInMs} ms"
                             } else {
                                 "WS: отключено"
                             }
@@ -1222,7 +1237,121 @@ constructor(
     }
 
     fun setTelemetrySerial(v: String) {
-        _state.update { it.copy(telemetrySerial = v) }
+        _state.update {
+            it.copy(
+                telemetrySerial = v,
+                telemetrySerialConflict = false,
+                telemetryRebindConfirmVisible = false,
+            )
+        }
+    }
+
+    fun requestTelemetryFreeSerial() {
+        viewModelScope.launch {
+            _state.update { it.copy(telemetryBusy = true, telemetryBanner = null, telemetrySerialConflict = false) }
+            runCatching { telemetryService.reserveFreeSerial().getOrThrow() }
+                .onSuccess { serial ->
+                    loadTelemetryForm()
+                    _state.update {
+                        it.copy(
+                            telemetryBusy = false,
+                            telemetrySerial = serial,
+                            telemetryBanner = "Свободный serial: $serial",
+                            telemetryBannerIsError = false,
+                        )
+                    }
+                }
+                .onFailure { e ->
+                    Timber.e(e, "requestTelemetryFreeSerial")
+                    _state.update {
+                        it.copy(
+                            telemetryBusy = false,
+                            telemetryBanner = e.message ?: "Не удалось запросить serial",
+                            telemetryBannerIsError = true,
+                        )
+                    }
+                }
+        }
+    }
+
+    fun dismissTelemetryRebindConfirm() {
+        _state.update {
+            it.copy(
+                telemetrySerialConflict = false,
+                telemetryRebindConfirmVisible = false,
+            )
+        }
+    }
+
+    fun confirmTelemetryRebindAndRegister() {
+        registerTelemetryMachine(rebind = true)
+    }
+
+    fun registerTelemetryMachine(rebind: Boolean = false) {
+        val current = _state.value
+        val validationMessage =
+            if (current.telemetryUseMvpProtocol) {
+                SerialNumberUtils.validationMessage(current.telemetrySerial)
+            } else {
+                null
+            }
+        if (validationMessage != null) {
+            _state.update {
+                it.copy(
+                    telemetryBanner = validationMessage,
+                    telemetryBannerIsError = true,
+                )
+            }
+            return
+        }
+        viewModelScope.launch {
+            _state.update {
+                it.copy(
+                    telemetryBusy = true,
+                    telemetryBanner = null,
+                    telemetrySerialConflict = false,
+                    telemetryRebindConfirmVisible = false,
+                )
+            }
+            runCatching {
+                val s = _state.value
+                telemetryService.registerMachine(s.telemetryRegKey, s.telemetrySerial, rebind).getOrThrow()
+                loadTelemetryForm()
+                telemetryService.connect()
+                _state.update {
+                    it.copy(
+                        telemetryBusy = false,
+                        telemetryBanner = "Регистрация OK; запущено подключение WS",
+                        telemetryBannerIsError = false,
+                    )
+                }
+            }.onFailure { e ->
+                Timber.e(e, "registerTelemetryMachine")
+                val conflict = e as? SerialAlreadyBoundException ?: e.cause as? SerialAlreadyBoundException
+                when {
+                    conflict != null ->
+                        _state.update {
+                            it.copy(
+                                telemetryBusy = false,
+                                telemetrySerialConflict = true,
+                                telemetryRebindConfirmVisible = true,
+                                telemetryBanner =
+                                    "Serial ${conflict.serialNumber} уже привязан к другой плате. " +
+                                        "Подтвердите перепривязку (rebind) для замены credential.",
+                                telemetryBannerIsError = true,
+                            )
+                        }
+                    else ->
+                        _state.update {
+                            it.copy(
+                                telemetryBusy = false,
+                                telemetryBanner = e.message ?: "Ошибка регистрации",
+                                telemetryBannerIsError = true,
+                            )
+                        }
+                }
+            }
+        }
     }
 
     fun saveTelemetryEndpoints() {
@@ -1243,34 +1372,6 @@ constructor(
                     it.copy(
                         telemetryBusy = false,
                         telemetryBanner = e.message ?: "Ошибка",
-                        telemetryBannerIsError = true,
-                    )
-                }
-            }
-        }
-    }
-
-    fun registerTelemetryMachine() {
-        viewModelScope.launch {
-            _state.update { it.copy(telemetryBusy = true, telemetryBanner = null) }
-            runCatching {
-                val s = _state.value
-                telemetryService.registerMachine(s.telemetryRegKey, s.telemetrySerial).getOrThrow()
-                loadTelemetryForm()
-                telemetryService.connect()
-                _state.update {
-                    it.copy(
-                        telemetryBusy = false,
-                        telemetryBanner = "Регистрация OK, secretKey сохранён; запущено подключение WS",
-                        telemetryBannerIsError = false,
-                    )
-                }
-            }.onFailure { e ->
-                Timber.e(e, "registerTelemetryMachine")
-                _state.update {
-                    it.copy(
-                        telemetryBusy = false,
-                        telemetryBanner = e.message ?: "Ошибка регистрации",
                         telemetryBannerIsError = true,
                     )
                 }
@@ -1302,10 +1403,17 @@ constructor(
 
     private suspend fun saveTelemetryEndpointsInternal() {
         val s = _state.value
+        val wsUrl =
+            if (s.telemetryUseMvpProtocol) {
+                TelemetryConfig.sanitizeWsUrlForMvp(s.telemetryWsUrl.trim())
+            } else {
+                s.telemetryWsUrl.trim().ifBlank { TelemetryConfig.DEFAULT_WS_URL }
+            }
         telemetryService.saveTelemetryConfig(
             TelemetryConfig(
                 apiUrl = s.telemetryApiUrl.trim().ifBlank { TelemetryConfig().apiUrl },
-                wsUrl = s.telemetryWsUrl.trim().ifBlank { TelemetryConfig().wsUrl },
+                wsUrl = wsUrl,
+                useMvpProtocol = s.telemetryUseMvpProtocol,
                 keycloakUrl = s.telemetryKeycloakUrl.trim().ifBlank { TelemetryConfig().keycloakUrl },
                 keycloakRealm = s.telemetryRealm.trim().ifBlank { TelemetryConfig().keycloakRealm },
             ),

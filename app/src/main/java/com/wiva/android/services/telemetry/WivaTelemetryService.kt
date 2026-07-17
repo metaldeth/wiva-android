@@ -4,6 +4,8 @@ import com.wiva.android.BuildConfig
 import com.wiva.android.data.local.db.JsonStoreKeys
 import com.wiva.android.data.location.WivaDeviceLocationReader
 import com.wiva.android.data.remote.telemetry.ConnectionState
+import com.wiva.android.data.remote.telemetry.mvp.SimpleTelemetryCoordinator
+import com.wiva.android.data.remote.telemetry.mvp.TelemetryIsoTimestamps
 import com.wiva.android.data.remote.telemetry.WivaTelemetryAuth
 import com.wiva.android.data.remote.telemetry.WivaTelemetryEventBus
 import com.wiva.android.data.remote.telemetry.WivaTelemetryWebSocketManager
@@ -21,10 +23,6 @@ import com.wiva.android.domain.repository.MachineInventoryRepository
 import javax.inject.Named
 import javax.inject.Inject
 import javax.inject.Singleton
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import java.util.TimeZone
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -36,6 +34,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -76,6 +75,7 @@ constructor(
     @Named("telemetryHttp")
     private val okHttpClient: OkHttpClient,
     private val deviceLocationReader: WivaDeviceLocationReader,
+    private val mvpCoordinator: SimpleTelemetryCoordinator,
     @AppIoScope private val scope: CoroutineScope,
 ) {
     private companion object {
@@ -100,7 +100,8 @@ constructor(
             explicitNulls = false
         }
 
-    val connectionState: StateFlow<ConnectionState> = wsManager.connectionState
+    private val _connectionState = MutableStateFlow<ConnectionState>(ConnectionState.Disconnected())
+    val connectionState: StateFlow<ConnectionState> = _connectionState.asStateFlow()
 
     private var previousConnection: ConnectionState? = null
     private var pendingAuth: CompletableDeferred<AuthCodeResult>? = null
@@ -142,6 +143,9 @@ constructor(
     @Volatile
     private var telemetryPausedByUser: Boolean = false
 
+    @Volatile
+    private var cachedUseMvpProtocol: Boolean = false
+
     private var scheduledAutoConnect: Job? = null
 
     data class AuthCodeResult(
@@ -151,39 +155,72 @@ constructor(
 
     init {
         scope.launch {
-            eventBus.incoming.collect { frame -> handleIncoming(frame) }
-        }
-        scope.launch {
-            wsManager.connectionState.collect { state ->
-                val becameConnected =
-                    state is ConnectionState.Connected &&
-                        previousConnection !is ConnectionState.Connected
-                previousConnection = state
-                if (becameConnected) {
-                    scope.launch { sendInitialExchange() }
+            loadTelemetryConfig()
+            launch {
+                mvpCoordinator.connectionState.collect { state ->
+                    if (cachedUseMvpProtocol) {
+                        _connectionState.value = state
+                    }
                 }
             }
-        }
-        scheduledAutoConnect =
-            scope.launch {
-                delay(3_000)
-                scheduledAutoConnect = null
-                startTelemetryIfRegistered("холодный старт")
+            launch {
+                wsManager.connectionState.collect { state ->
+                    if (!cachedUseMvpProtocol) {
+                        _connectionState.value = state
+                    }
+                }
             }
+            launch {
+                eventBus.incoming.collect { frame -> handleIncoming(frame) }
+            }
+            launch {
+                connectionState.collect { state ->
+                    val becameConnected =
+                        state is ConnectionState.Connected &&
+                            previousConnection !is ConnectionState.Connected
+                    previousConnection = state
+                    if (becameConnected && !cachedUseMvpProtocol) {
+                        scope.launch { sendInitialExchange() }
+                    }
+                }
+            }
+            scheduledAutoConnect =
+                launch {
+                    delay(3_000)
+                    scheduledAutoConnect = null
+                    startTelemetryIfRegistered("холодный старт")
+                }
+        }
+    }
+
+    private suspend fun readTelemetryConfigFromStore(): TelemetryConfig {
+        val raw = configRepository.getJson(JsonStoreKeys.TELEMETRY_CONFIG) ?: return TelemetryConfig.migrateLegacy(TelemetryConfig())
+        return runCatching { json.decodeFromString<TelemetryConfig>(raw) }.getOrDefault(TelemetryConfig()).let {
+            TelemetryConfig.migrateLegacy(it)
+        }
+    }
+
+    private fun updateMvpProtocolCache(useMvp: Boolean) {
+        cachedUseMvpProtocol = useMvp
     }
 
     suspend fun loadTelemetryConfig(): TelemetryConfig {
-        val raw = configRepository.getJson(JsonStoreKeys.TELEMETRY_CONFIG) ?: return TelemetryConfig()
-        return runCatching { json.decodeFromString<TelemetryConfig>(raw) }.getOrDefault(TelemetryConfig())
+        val config = readTelemetryConfigFromStore()
+        updateMvpProtocolCache(config.useMvpProtocol)
+        return config
     }
 
     suspend fun saveTelemetryConfig(config: TelemetryConfig) {
-        configRepository.setJson(JsonStoreKeys.TELEMETRY_CONFIG, json.encodeToString(TelemetryConfig.serializer(), config))
+        val migrated = TelemetryConfig.migrateLegacy(config)
+        configRepository.setJson(JsonStoreKeys.TELEMETRY_CONFIG, json.encodeToString(TelemetryConfig.serializer(), migrated))
+        updateMvpProtocolCache(migrated.useMvpProtocol)
     }
 
     suspend fun loadMachineRegistration(): MachineRegistration {
-        val raw = configRepository.getJson(JsonStoreKeys.MACHINE_REGISTRATION) ?: return MachineRegistration()
-        return runCatching { json.decodeFromString<MachineRegistration>(raw) }.getOrDefault(MachineRegistration())
+        val raw = configRepository.getJson(JsonStoreKeys.MACHINE_REGISTRATION) ?: return MachineRegistration.migrateLegacy(MachineRegistration())
+        return runCatching { json.decodeFromString<MachineRegistration>(raw) }.getOrDefault(MachineRegistration()).let {
+            MachineRegistration.migrateLegacy(it)
+        }
     }
 
     suspend fun saveMachineRegistration(reg: MachineRegistration) {
@@ -191,10 +228,17 @@ constructor(
     }
 
  /**
- * Регистрация машины (modelName/machineName = WIVA).
+ * Регистрация машины: MVP enroll или legacy regKey.
  */
-    suspend fun registerMachine(regKey: String, serialNumber: String): Result<Unit> =
+    suspend fun registerMachine(
+        regKey: String,
+        serialNumber: String,
+        rebind: Boolean = false,
+    ): Result<Unit> =
         withContext(Dispatchers.IO) {
+            if (loadTelemetryConfig().useMvpProtocol) {
+                return@withContext mvpCoordinator.enrollMachine(serialNumber, rebind)
+            }
             runCatching {
                 val t = loadTelemetryConfig()
                 val url = "${t.apiUrl.trimEnd('/')}/api/telemetry-machine-control/machine/registration/${regKey.trim()}"
@@ -225,27 +269,47 @@ constructor(
             }
         }
 
+    suspend fun reserveFreeSerial(): Result<String> = mvpCoordinator.reserveFreeSerial()
+
     fun connect() {
         telemetryPausedByUser = false
         scheduledAutoConnect?.cancel()
         scheduledAutoConnect = null
-        wsManager.disconnect()
-        scope.launch { connectWithLoadedCredentials("явное подключение") }
+        scope.launch {
+            if (cachedUseMvpProtocol) {
+                mvpCoordinator.connect()
+            } else {
+                wsManager.disconnect()
+                connectWithLoadedCredentials("явное подключение")
+            }
+        }
     }
 
     fun disconnect() {
         telemetryPausedByUser = true
         scheduledAutoConnect?.cancel()
         scheduledAutoConnect = null
-        wsManager.disconnect()
+        scope.launch {
+            if (cachedUseMvpProtocol) {
+                mvpCoordinator.disconnect()
+            } else {
+                wsManager.disconnect()
+            }
+        }
     }
 
     fun reconnect() {
         telemetryPausedByUser = false
         scheduledAutoConnect?.cancel()
         scheduledAutoConnect = null
-        wsManager.disconnect()
-        scope.launch { connectWithLoadedCredentials("reconnect") }
+        scope.launch {
+            if (cachedUseMvpProtocol) {
+                mvpCoordinator.reconnect()
+            } else {
+                wsManager.disconnect()
+                connectWithLoadedCredentials("reconnect")
+            }
+        }
     }
 
  /**
@@ -257,7 +321,21 @@ constructor(
             Timber.d("WivaTelemetry: автоподключение пропущено ($reason) — пауза по запросу пользователя")
             return
         }
+        if (cachedUseMvpProtocol) {
+            mvpCoordinator.connect()
+            return
+        }
         connectWithLoadedCredentials(reason)
+    }
+
+    private fun isMvpProtocolActive(): Boolean = cachedUseMvpProtocol
+
+    private suspend fun skipLegacyTopic(operation: String): Boolean {
+        if (isMvpProtocolActive()) {
+            Timber.i("WivaTelemetry: $operation пропущен — активен MVP-протокол")
+            return true
+        }
+        return false
     }
 
     private suspend fun connectWithLoadedCredentials(reason: String) {
@@ -277,8 +355,8 @@ constructor(
             Timber.w("WivaTelemetry: нет machineKey или serialNumber ($reason) — регистрация в сервисном меню")
             return
         }
-        Timber.i("WivaTelemetry: запуск WS ($reason), url=${t.wsUrl}")
-        wsManager.connect(t.wsUrl) {
+        Timber.i("WivaTelemetry: запуск WS ($reason), url=${t.wsUrl.ifBlank { TelemetryConfig.DEFAULT_WS_URL }}")
+        wsManager.connect(t.wsUrl.ifBlank { TelemetryConfig.DEFAULT_WS_URL }) {
             WivaTelemetryAuth.fetchAccessToken(
                 okHttpClient,
                 t.keycloakUrl.trimEnd('/'),
@@ -319,6 +397,7 @@ constructor(
 
  /** Запрос матрицы наполнения. */
     suspend fun requestCellStoreMatrix(): Result<Unit> {
+        if (skipLegacyTopic("cellStoreRequestExport")) return Result.success(Unit)
         val serial = loadMachineRegistration().serialNumber.ifBlank {
             return Result.failure(IllegalStateException("Нет serialNumber"))
         }
@@ -327,6 +406,7 @@ constructor(
 
  /** Запрос базы ингредиентов. */
     suspend fun requestBaseIngredients(): Result<Unit> {
+        if (skipLegacyTopic("baseIngredientRequestExportTopic")) return Result.success(Unit)
         val serial = loadMachineRegistration().serialNumber.ifBlank {
             return Result.failure(IllegalStateException("Нет serialNumber"))
         }
@@ -335,6 +415,7 @@ constructor(
 
  /** Повторный запрос machineInfo. */
     suspend fun requestMachineInfo(): Result<Unit> {
+        if (skipLegacyTopic("machineInfo")) return Result.success(Unit)
         val serial = loadMachineRegistration().serialNumber.ifBlank {
             return Result.failure(IllegalStateException("Нет serialNumber"))
         }
@@ -376,6 +457,7 @@ constructor(
  * Вызывается только при изменении значений температуры.
  */
     suspend fun sendSetMachineInfo(temperature0: Int, temperature1: Int): Result<Unit> {
+        if (skipLegacyTopic("setMachineInfo")) return Result.success(Unit)
         if (wsManager.connectionState.value !is ConnectionState.Connected) {
             return Result.success(Unit)
         }
@@ -383,9 +465,7 @@ constructor(
             Timber.w("WivaTelemetry: нет serialNumber для setMachineInfo")
             return Result.success(Unit)
         }
-        val iso = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-            timeZone = TimeZone.getTimeZone("UTC")
-        }.format(Date())
+        val iso = TelemetryIsoTimestamps.nowUtc()
  //. Иначе WS-сервер
  // (getMessageFromByte + json.Marshal(interface{})) дважды кодирует строковый body.
         val payload =
@@ -407,6 +487,7 @@ constructor(
     }
 
     suspend fun sendSaleImportTopic(message: SaleImportOutboundMessage): Result<Unit> {
+        if (skipLegacyTopic("saleImportTopic")) return Result.success(Unit)
         val payload = jsonWs.encodeToString(SaleImportOutboundMessage.serializer(), message)
         return wsManager.sendRawJson(payload)
     }
@@ -416,6 +497,7 @@ constructor(
  * При offline — предупреждение в лог, без исключения.
  */
     suspend fun sendSaleImportTopic(items: List<SaleImportItem>): Result<Unit> {
+        if (skipLegacyTopic("saleImportTopic")) return Result.success(Unit)
         if (items.isEmpty()) return Result.success(Unit)
         if (wsManager.connectionState.value !is ConnectionState.Connected) {
             Timber.w("WivaTelemetry: WebSocket не подключен, отправка saleImportTopic невозможна")
@@ -429,10 +511,7 @@ constructor(
         val reg = loadMachineRegistration()
         val orgId = reg.organizationId.toIntOrNull() ?: 0
         val machineId = reg.machineId.toIntOrNull() ?: 0
-        val iso =
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            }.format(Date())
+        val iso = TelemetryIsoTimestamps.nowUtc()
         val jsonItems = items.mapNotNull { line -> mapSaleImportItem(line, orgId, machineId, iso) }
         if (jsonItems.isEmpty()) return Result.success(Unit)
         return sendSaleImportTopic(SaleImportOutboundMessage(clientId = serial, body = jsonItems))
@@ -491,6 +570,7 @@ constructor(
  * @return true, если WS подключён и кадр ушёл.
  */
     suspend fun sendCellVolumeImportFromConfig(): Boolean {
+        if (skipLegacyTopic("cellVolumeImportTopic")) return false
         if (wsManager.connectionState.value !is ConnectionState.Connected) {
             Timber.w("WivaTelemetry: WebSocket не подключен, отправка cellVolumeImportTopic невозможна")
             return false
@@ -539,6 +619,7 @@ constructor(
  * Матрица наполнения из merge + сохранённая матрица.
  */
     suspend fun sendCellStoreImportFromConfig(): Boolean {
+        if (skipLegacyTopic("cellStoreImportTopic")) return false
         if (wsManager.connectionState.value !is ConnectionState.Connected) {
             Timber.w("WivaTelemetry: WebSocket не подключен, отправка cellStoreImportTopic невозможна")
             return false
@@ -606,15 +687,13 @@ constructor(
     }
 
     suspend fun sendAuthCodeRequest(code: String): AuthCodeResult {
+        if (skipLegacyTopic("authCodeRequestExport")) return AuthCodeResult(false, "Legacy topic отключён (MVP)")
         val reg = loadMachineRegistration()
         val serial = reg.serialNumber.ifBlank { return AuthCodeResult(false, "Нет serialNumber") }
         if (pendingAuth != null) return AuthCodeResult(false, "Запрос авторизации уже выполняется")
         val deferred = CompletableDeferred<AuthCodeResult>()
         pendingAuth = deferred
-        val iso =
-            SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            }.format(Date())
+        val iso = TelemetryIsoTimestamps.nowUtc()
         val body =
             jsonWs.encodeToString(
                 AuthCodeRequestOut(
@@ -639,6 +718,7 @@ constructor(
 
  /** Запрос статуса подписки по UUID клиента (карте). */
     suspend fun sendStatusSubscribeTopic(userUuid: String): Result<Unit> {
+        if (skipLegacyTopic("statusSubscribeTopic")) return Result.success(Unit)
         if (wsManager.connectionState.value !is ConnectionState.Connected) {
             Timber.w("WivaTelemetry: WebSocket не подключен — statusSubscribeTopic не отправлен (userUuid=%s)", userUuid)
             return Result.success(Unit)
@@ -661,6 +741,7 @@ constructor(
 
  /** Запрос тарифов подписки (orgId из machineInfo). */
     suspend fun sendSubscriptionLevelRequest(): Result<Unit> {
+        if (skipLegacyTopic("subscriptionLevelTopic")) return Result.success(Unit)
         if (wsManager.connectionState.value !is ConnectionState.Connected) {
             Timber.w("WivaTelemetry: WebSocket не подключен — subscriptionLevelTopic не отправлен (тарифы не придут)")
             return Result.success(Unit)
@@ -710,6 +791,7 @@ constructor(
 
  /** Отправка покупки/отмены подписки (saleSubscribeTopic). */
     suspend fun sendSaleSubscribeTopic(body: SaleSubscribeTopicBody): Result<Unit> {
+        if (skipLegacyTopic("saleSubscribeTopic")) return Result.success(Unit)
         if (wsManager.connectionState.value !is ConnectionState.Connected) {
             Timber.w("WivaTelemetry: WebSocket не подключен, отправка saleSubscribeTopic невозможна")
             return Result.success(Unit)
@@ -760,6 +842,7 @@ constructor(
 
  /** useSubscriptionSaleTopic: учёт налива по карте подписки. */
     suspend fun sendUseSubscriptionSaleTopic(body: UseSubscriptionSaleBody): Result<Unit> {
+        if (skipLegacyTopic("useSubscriptionSaleTopic")) return Result.success(Unit)
         if (wsManager.connectionState.value !is ConnectionState.Connected) {
             Timber.w("WivaTelemetry: WebSocket не подключен, отправка useSubscriptionSaleTopic невозможна")
             return Result.success(Unit)

@@ -23,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.input.pointer.pointerInput
@@ -92,6 +93,7 @@ fun SettingsTextField(
     fieldKey: Any = label,
     maxLength: Int = 512,
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
+    testTag: String? = null,
 ) {
     val keyboardController = LocalSoftwareKeyboardController.current
     val host = LocalServiceKeyboardHost.current
@@ -124,7 +126,7 @@ fun SettingsTextField(
 
  // OutlinedTextField перехватывает жесты внутри decorationBox — modifier.clickable на поле часто не срабатывает.
  // Прозрачный слой поверх гарантирует открытие нижней панели по тапу.
-    Box(modifier = modifier) {
+    Box(modifier = modifier.then(if (testTag != null) Modifier.testTag(testTag) else Modifier)) {
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,

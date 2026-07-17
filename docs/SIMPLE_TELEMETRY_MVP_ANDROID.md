@@ -1,0 +1,295 @@
+# Simple Telemetry MVP — Android
+
+
+
+См. также сервер: `c:\wiva\wiva-telemetry\AGENTS.md`, enrollment key в `c:\wiva\wiva-telemetry\.env.example`.
+
+
+
+## Локальная конфигурация
+
+
+
+Ключ enrollment **не коммитить**. Значение должно **совпадать** с `MACHINE_ENROLLMENT_KEY` на сервере телеметрии.
+
+
+
+| Источник | Ключ | Пример |
+
+|----------|------|--------|
+
+| `local.properties` | `telemetry.enrollmentKey` | `telemetry.enrollmentKey=dev-enrollment-key-change-me` |
+
+| переменная окружения | `WIVA_TELEMETRY_ENROLLMENT_KEY` | см. PowerShell ниже |
+
+
+
+Шаблон: `local.properties.sample` в корне репозитория.
+
+
+
+### PowerShell (Windows)
+
+
+
+```powershell
+
+# Одна сессия терминала
+
+$env:WIVA_TELEMETRY_ENROLLMENT_KEY = "dev-enrollment-key-change-me"
+
+.\gradlew.bat assembleDebug
+
+```
+
+
+
+Постоянно (пользователь): `[Environment]::SetEnvironmentVariable("WIVA_TELEMETRY_ENROLLMENT_KEY", "...", "User")` — затем новый терминал.
+
+
+
+CMD (legacy): `set WIVA_TELEMETRY_ENROLLMENT_KEY=...`
+
+
+
+После изменения `local.properties` или env пересоберите APK — ключ попадает в `BuildConfig.TELEMETRY_ENROLLMENT_KEY`.
+
+
+
+## REST (machine)
+
+
+
+- Base URL: поле `apiUrl` в `TelemetryConfig` (JsonStore `telemetryConfig`), по умолчанию `TelemetryConfig.DEFAULT_API_URL`.
+
+- Заголовок на reserve/enroll: `X-Enrollment-Key: <BuildConfig.TELEMETRY_ENROLLMENT_KEY>`.
+
+
+
+### Reserve serial
+
+
+
+`POST /api/v1/machines/serials/reserve`
+
+
+
+- Тело (опционально): `{ "installationId": "<uuid>" }`.
+
+- Ответ `201`: `{ "serialNumber": "WIVA-000001", "reservationToken": "…", "expiresAt": "<ISO8601>" }`.
+
+- TTL резерва: **15 минут**; для enroll с зарезервированным serial нужен тот же `reservationToken`.
+
+
+
+### Enroll
+
+
+
+`POST /api/v1/machines/enroll`
+
+
+
+- Тело: `installationId`, `serialNumber`, `credential` (`mch_…`), `app`, опционально `reservationToken`, `rebind`, `device`.
+
+- Ответ `201` (новый) / `200` (идемпотентный повтор):
+
+
+
+```json
+
+{
+
+  "id": "<uuid>",
+
+  "machineId": "<uuid>",
+
+  "serialNumber": "WIVA-000001",
+
+  "installationId": "<uuid>"
+
+}
+
+```
+
+
+
+`id` и `machineId` — один и тот же UUID (клиент читает `machineId`). Полей `wsUrl` / `wsProtocolUrl` в ответе нет.
+
+
+
+### 409 SERIAL_ALREADY_BOUND
+
+
+
+Nest возвращает вложенный объект в `message`:
+
+
+
+```json
+
+{
+
+  "statusCode": 409,
+
+  "message": {
+
+    "code": "SERIAL_ALREADY_BOUND",
+
+    "message": "Serial is already bound to another installation"
+
+  },
+
+  "error": "Conflict"
+
+}
+
+```
+
+
+
+Клиент (`MvpTelemetryApiClient`): парсит `message.code` (Nest nested) или flat `code`; при `SERIAL_ALREADY_BOUND` — `SerialAlreadyBoundException` → rebind UI. Другие 409 (например `INSTALLATION_ALREADY_ENROLLED`) — обычная ошибка без rebind.
+
+
+
+## WebSocket
+
+
+
+### URL (fallback)
+
+
+
+Порядок в `MvpTelemetryUrlResolver`:
+
+
+
+1. `wsProtocolUrl` или `wsUrl` из ответа enroll (если сервер когда‑либо начнёт их отдавать), **кроме legacy** `ws://185.46.8.39:8315/ws`;
+
+2. `telemetryConfig.wsUrl` из JsonStore (**legacy WS при MVP игнорируется**);
+
+3. производный от `apiUrl`: `https://…` → `wss://…/api/v1/machines/ws`, `http://…` → `ws://…/api/v1/machines/ws`.
+
+
+
+### Auth и протокол
+
+
+
+- Auth: `Authorization: Bearer <machine credential>`.
+
+- Конверт: `{ type, messageId, sentAt, payload [, correlationId] }`; `ack` с `correlationId`.
+
+- Heartbeat по интервалу из `hello` (сервер по умолчанию 30 с).
+
+
+
+### ONLINE: сервер vs клиент
+
+
+
+| Сторона | Когда ONLINE |
+
+|---------|----------------|
+
+| **Сервер (БД / dashboard)** | Сразу после успешной WS-аутентификации (Bearer + валидный credential); до client `hello`. |
+
+| **Android (UI / ConnectionState)** | Только после входящего `hello` от сервера; до этого — `Connecting`, не `Connected`. |
+
+
+
+## JsonStore
+
+
+
+- `telemetryConfig.useMvpProtocol` — `true` по умолчанию.
+
+- `machineRegistration`: `installationId`, `machineCredential`, `serialNumber`, `machineId`, `wsProtocolUrl`, `enrolled`.
+
+
+
+## Legacy
+
+
+
+При `useMvpProtocol: false` — Keycloak + topic-WS (`WivaTelemetryWebSocketManager`). Business-topics при MVP — no-op с логом.
+
+
+
+## UI automation (Compose testTag / UiAutomator)
+
+
+
+Сервисное меню и экран **Телеметрия → Подключение** помечены стабильными `testTag` для ADB/UIAutomator smoke. На корне `ServiceScreen` включено `testTagsAsResourceId` — теги попадают в accessibility tree как synthetic resource id (`com.wiva.android:id/<tag>`).
+
+
+
+### Навигация до «Подключение»
+
+
+
+| Шаг | testTag | Примечание |
+|-----|---------|------------|
+| Корень сервисного меню | `service_menu_root` | `testTagsAsResourceId` на ancestor |
+| Группа rail «Телеметрия» | `service_group_telemetry` | `NavigationRailItem` |
+| Subtab «Подключение» | `service_subtab_telemetry_connection` | `ScrollableTabRow` |
+| Subtab «Адреса» (API/WS URL) | `service_subtab_telemetry_addresses` | при настройке endpoint'ов |
+
+
+
+Пример (Python uiautomator2):
+
+
+
+```python
+
+d(resourceId="com.wiva.android:id/service_group_telemetry").click()
+
+d(resourceId="com.wiva.android:id/service_subtab_telemetry_connection").click()
+
+d(resourceId="com.wiva.android:id/telemetry_reserve_serial").click()
+
+```
+
+
+
+### Телеметрия → Подключение
+
+
+
+| Элемент | testTag |
+|---------|---------|
+| Корень вкладки | `telemetry_connection_root` |
+| Карточка статуса WS | `telemetry_connection_status_card` |
+| Текст «Подключено» / «Не подключено» | `telemetry_connection_status_text` |
+| Кнопка «Реконнект» | `telemetry_connection_reconnect` |
+| Поле serial | `telemetry_serial_input` |
+| «Запросить свободный serial» | `telemetry_reserve_serial` |
+| «Регистрация» | `telemetry_register` |
+| «Подключить WS» | `telemetry_connect_ws` |
+| «Отключить WS» | `telemetry_disconnect_ws` |
+| Карточка rebind 409 | `telemetry_rebind_card` |
+| «Перепривязать» | `telemetry_rebind_confirm` |
+| «Отмена» (rebind) | `telemetry_rebind_cancel` |
+| Баннер успеха/ошибки | `telemetry_banner` |
+| Индикатор «Запрос к серверу…» | `telemetry_busy` |
+| regKey (legacy) | `telemetry_reg_key_input` |
+
+
+
+### Телеметрия → Адреса
+
+
+
+| Элемент | testTag |
+|---------|---------|
+| Корень вкладки | `telemetry_addresses_root` |
+| API URL | `telemetry_api_url_input` |
+| WebSocket URL | `telemetry_ws_url_input` |
+| «Сохранить адреса» | `telemetry_save_addresses` |
+
+
+
+Константы в коде: `ServiceMenuTestTags.kt`. Unit-тест уникальности: `ServiceMenuTestTagsTest`.
+
+

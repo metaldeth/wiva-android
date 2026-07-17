@@ -4,6 +4,7 @@ import com.wiva.android.data.remote.telemetry.WivaTelemetryEventBus
 import com.wiva.android.data.remote.telemetry.WivaTelemetryWebSocketManager
 import com.wiva.android.data.network.NetworkTrafficLogger
 import com.wiva.android.data.remote.telemetry.TelemetryApiService
+import com.wiva.android.data.remote.telemetry.mvp.MvpTelemetryApiClient
 import com.wiva.android.domain.model.TelemetryConfig
 import dagger.Module
 import dagger.Provides
@@ -69,4 +70,22 @@ object TelemetryModule {
             appScope,
             networkTrafficLogger,
         )
+
+    @Provides
+    @Singleton
+    fun provideMvpTelemetryApiClient(
+        @Named("telemetryHttp") okHttpClient: OkHttpClient,
+    ): MvpTelemetryApiClient {
+        val json =
+            Json {
+                ignoreUnknownKeys = true
+                encodeDefaults = true
+                explicitNulls = false
+            }
+        return MvpTelemetryApiClient(
+            httpClient = okHttpClient,
+            json = json,
+            enrollmentKeyProvider = { com.wiva.android.BuildConfig.TELEMETRY_ENROLLMENT_KEY },
+        )
+    }
 }

@@ -27,9 +27,13 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.style.TextAlign
@@ -37,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
+@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 fun ServiceScreen(
     onBack: () -> Unit,
@@ -58,7 +63,14 @@ fun ServiceScreen(
     val scaledTypography = remember(parentTypography) { parentTypography.scaled() }
 
     MaterialTheme(colorScheme = colorScheme, typography = scaledTypography) {
-        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .semantics { testTagsAsResourceId = true }
+                    .testTag(ServiceMenuTestTags.SERVICE_MENU_ROOT)
+                    .background(MaterialTheme.colorScheme.background),
+        ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 WivaServiceMenuHeader(
                     onClose = {
@@ -102,7 +114,10 @@ private fun WivaServiceMenuHeader(onClose: () -> Unit) {
             color = MaterialTheme.colorScheme.onPrimary,
             style = MaterialTheme.typography.headlineSmall,
         )
-        IconButton(onClick = onClose) {
+        IconButton(
+            onClick = onClose,
+            modifier = Modifier.testTag(ServiceMenuTestTags.SERVICE_MENU_CLOSE),
+        ) {
             Text("✕", color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.titleLarge)
         }
     }
@@ -141,7 +156,11 @@ private fun WivaServiceMenuGroupRail(
                         unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant,
                         indicatorColor = MaterialTheme.colorScheme.primaryContainer,
                     ),
-                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp)
+                        .testTag(ServiceMenuTestTags.serviceGroupTag(group.id)),
             )
         }
     }
@@ -177,6 +196,7 @@ private fun WivaServiceMenuContent(
                     Tab(
                         selected = index == selectedIndex,
                         onClick = { viewModel.onServiceSubTabSelected(spec.id) },
+                        modifier = Modifier.testTag(ServiceMenuTestTags.serviceSubTabTag(spec.id)),
                         text = {
                             Text(
                                 spec.label,

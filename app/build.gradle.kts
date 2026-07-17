@@ -7,6 +7,9 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+import java.io.FileInputStream
+import java.util.Properties
+
 android {
     namespace = "com.wiva.android"
     compileSdk = 35
@@ -48,10 +51,21 @@ android {
         applicationId = "com.wiva.android"
         minSdk = 25
         targetSdk = 35
-        versionCode = 166
-        versionName = "12.05.26.8"
+        versionCode = 167
+        versionName = "12.05.26.9"
 
         testInstrumentationRunner = "com.wiva.android.WivaHiltTestRunner"
+
+        val localProps = Properties()
+        val localPropsFile = rootProject.file("local.properties")
+        if (localPropsFile.exists()) {
+            FileInputStream(localPropsFile).use { localProps.load(it) }
+        }
+        val enrollmentKey =
+            localProps.getProperty("telemetry.enrollmentKey")
+                ?: System.getenv("WIVA_TELEMETRY_ENROLLMENT_KEY")
+                ?: ""
+        buildConfigField("String", "TELEMETRY_ENROLLMENT_KEY", "\"${enrollmentKey.replace("\"", "\\\"")}\"")
     }
 
     buildTypes {
@@ -109,6 +123,10 @@ android {
         buildConfig = true
     }
 
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -161,6 +179,7 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.coroutines.test)
     testImplementation(libs.turbine)
+    testImplementation(libs.mockwebserver)
 
     androidTestImplementation(libs.hilt.android.testing)
     androidTestImplementation(libs.androidx.test.junit)

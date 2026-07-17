@@ -41,6 +41,12 @@ gradlew.bat installRelease
 
 Полный OTA и Docker: `docs/OTA_UPDATE.md`.
 
+## Simple Telemetry MVP
+
+- Документация клиента: **`docs/SIMPLE_TELEMETRY_MVP_ANDROID.md`** (REST enroll, WS fallback, 409/rebind, ONLINE после `hello`).
+- Локальные ключи (не коммитить): **`local.properties.sample`** → скопировать в `local.properties`; `telemetry.enrollmentKey` = `MACHINE_ENROLLMENT_KEY` на сервере (`wiva-telemetry/.env.example`).
+- Серверная документация: `c:\wiva\wiva-telemetry\AGENTS.md`, deploy: `c:\wiva\wiva-telemetry\docs\deployment\server.md`.
+
 ## Офис / железо (этап F)
 
 Офисная приёмка контроллера и платёжного терминала — шаблон чеклиста с полями подписи, версии APK/build, мок↔реал и ссылками на эталон **wiva_electron**:

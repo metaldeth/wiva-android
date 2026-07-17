@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.wiva.android.ui.screens.service.tabs.WivaControllerDebugTab
 import com.wiva.android.ui.screens.service.tabs.WivaIdleTab
@@ -230,10 +231,15 @@ private fun WivaTelemetryConnectionTab(
     viewModel: ServiceViewModel,
 ) {
     val conn by viewModel.telemetryConnectionUi.collectAsStateWithLifecycle()
-    SettingsColumn {
+    SettingsColumn(
+        modifier = Modifier.testTag(ServiceMenuTestTags.TELEMETRY_CONNECTION_ROOT),
+    ) {
         val connected = conn.connected
         Card(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(ServiceMenuTestTags.TELEMETRY_CONNECTION_STATUS_CARD),
             colors =
                 CardDefaults.cardColors(
                     containerColor =
@@ -261,6 +267,7 @@ private fun WivaTelemetryConnectionTab(
                         if (connected) "Подключено" else "Не подключено",
                         color = contentColor,
                         style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.testTag(ServiceMenuTestTags.TELEMETRY_CONNECTION_STATUS_TEXT),
                     )
                     Text(
                         conn.label,
@@ -275,85 +282,161 @@ private fun WivaTelemetryConnectionTab(
                         )
                     }
                 }
-                Button(onClick = { viewModel.reconnectTelemetry() }, enabled = !state.telemetryBusy) {
+                Button(
+                    onClick = { viewModel.reconnectTelemetry() },
+                    enabled = !state.telemetryBusy,
+                    modifier = Modifier.testTag(ServiceMenuTestTags.TELEMETRY_CONNECTION_RECONNECT),
+                ) {
                     Text("Реконнект")
                 }
             }
         }
 
         Spacer(Modifier.height(24.dp))
-        Text("Регистрация и подключение", style = MaterialTheme.typography.headlineSmall)
+        Text("Регистрация и подключение (MVP)", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
         Text(
- "Код регистрации и серийный номер.",
+            "Серийный номер WIVA-000001 — вручную или «Запросить свободный serial». После enroll — WebSocket с machine credential.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(12.dp))
         SettingsTextField(
-            label = "Код регистрации (regKey)",
-            value = state.telemetryRegKey,
-            onValueChange = viewModel::setTelemetryRegKey,
-        )
-        SettingsTextField(
-            label = "Серийный номер (clientId / serialNumber)",
+            label = "Серийный номер (serialNumber)",
             value = state.telemetrySerial,
             onValueChange = viewModel::setTelemetrySerial,
+            testTag = ServiceMenuTestTags.TELEMETRY_SERIAL_INPUT,
         )
+        OutlinedButton(
+            onClick = { viewModel.requestTelemetryFreeSerial() },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(ServiceMenuTestTags.TELEMETRY_RESERVE_SERIAL),
+            enabled = !state.telemetryBusy,
+        ) {
+            Text("Запросить свободный serial")
+        }
+        if (state.telemetrySerialConflict || state.telemetryRebindConfirmVisible) {
+            Spacer(Modifier.height(12.dp))
+            Card(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(ServiceMenuTestTags.TELEMETRY_REBIND_CARD),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        "Serial уже привязан к другой плате",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Подтвердите перепривязку — старый credential на прежней плате перестанет работать.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Row(modifier = Modifier.fillMaxWidth()) {
+                        OutlinedButton(
+                            onClick = { viewModel.dismissTelemetryRebindConfirm() },
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .testTag(ServiceMenuTestTags.TELEMETRY_REBIND_CANCEL),
+                        ) {
+                            Text("Отмена")
+                        }
+                        Spacer(Modifier.width(8.dp))
+                        Button(
+                            onClick = { viewModel.confirmTelemetryRebindAndRegister() },
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .testTag(ServiceMenuTestTags.TELEMETRY_REBIND_CONFIRM),
+                            enabled = !state.telemetryBusy,
+                        ) {
+                            Text("Перепривязать")
+                        }
+                    }
+                }
+            }
+        }
+        if (!state.telemetryUseMvpProtocol) {
+            SettingsTextField(
+                label = "Код регистрации (regKey, legacy)",
+                value = state.telemetryRegKey,
+                onValueChange = viewModel::setTelemetryRegKey,
+                testTag = ServiceMenuTestTags.TELEMETRY_REG_KEY_INPUT,
+            )
+        }
         Row(modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = { viewModel.registerTelemetryMachine() },
-                modifier = Modifier.weight(1f),
-                enabled = !state.telemetryBusy,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .testTag(ServiceMenuTestTags.TELEMETRY_REGISTER),
+                enabled = !state.telemetryBusy && state.telemetrySerial.isNotBlank(),
             ) {
                 Text("Регистрация")
             }
             Spacer(Modifier.width(8.dp))
             Button(
                 onClick = { viewModel.connectTelemetry() },
-                modifier = Modifier.weight(1f),
-                enabled = !state.telemetryBusy,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .testTag(ServiceMenuTestTags.TELEMETRY_CONNECT_WS),
+                enabled = !state.telemetryBusy && state.telemetrySerial.isNotBlank(),
             ) {
                 Text("Подключить WS")
             }
         }
-        Spacer(Modifier.height(16.dp))
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        ) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Text("Ping/pong telemetry-machine-ws", style = MaterialTheme.typography.titleMedium)
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    if (state.telemetryPingPongEnabled) {
-                        "Сейчас включён: при новом WS-подключении приложение отправит capabilities с pingPong=true."
-                    } else {
-                        "Сейчас выключен: capabilities с pingPong=true не отправляется."
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(12.dp))
-                OutlinedButton(
-                    onClick = { viewModel.toggleTelemetryPingPong() },
-                    enabled = !state.telemetryBusy,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
+        if (!state.telemetryUseMvpProtocol) {
+            Spacer(Modifier.height(16.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Ping/pong telemetry-machine-ws", style = MaterialTheme.typography.titleMedium)
+                    Spacer(Modifier.height(4.dp))
                     Text(
                         if (state.telemetryPingPongEnabled) {
-                            "Выключить ping/pong"
+                            "Сейчас включён: при новом WS-подключении приложение отправит capabilities с pingPong=true."
                         } else {
-                            "Включить ping/pong"
+                            "Сейчас выключен: capabilities с pingPong=true не отправляется."
                         },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedButton(
+                        onClick = { viewModel.toggleTelemetryPingPong() },
+                        enabled = !state.telemetryBusy,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            if (state.telemetryPingPongEnabled) {
+                                "Выключить ping/pong"
+                            } else {
+                                "Включить ping/pong"
+                            },
+                        )
+                    }
                 }
             }
         }
         if (state.telemetryBusy) {
             Spacer(Modifier.height(12.dp))
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(ServiceMenuTestTags.TELEMETRY_BUSY),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 CircularProgressIndicator(
@@ -370,7 +453,10 @@ private fun WivaTelemetryConnectionTab(
         }
         OutlinedButton(
             onClick = { viewModel.disconnectTelemetry() },
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(ServiceMenuTestTags.TELEMETRY_DISCONNECT_WS),
             enabled = !state.telemetryBusy,
         ) {
             Text("Отключить WS")
@@ -384,11 +470,13 @@ private fun WivaTelemetryAddressesTab(
     state: ServiceUiState,
     viewModel: ServiceViewModel,
 ) {
-    SettingsColumn {
+    SettingsColumn(
+        modifier = Modifier.testTag(ServiceMenuTestTags.TELEMETRY_ADDRESSES_ROOT),
+    ) {
         Text("Адреса телеметрии", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Куда ходит автомат: REST регистрация, WebSocket обмены, OAuth (Keycloak). Сохраните перед подключением на вкладке «Подключение».",
+            "REST enroll/reserve и WebSocket MVP. Legacy Keycloak — только при useMvpProtocol=false в JSON.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -397,11 +485,13 @@ private fun WivaTelemetryAddressesTab(
             label = "API (HTTPS) — регистрация машины",
             value = state.telemetryApiUrl,
             onValueChange = viewModel::setTelemetryApiUrl,
+            testTag = ServiceMenuTestTags.TELEMETRY_API_URL_INPUT,
         )
         SettingsTextField(
             label = "WebSocket URL",
             value = state.telemetryWsUrl,
             onValueChange = viewModel::setTelemetryWsUrl,
+            testTag = ServiceMenuTestTags.TELEMETRY_WS_URL_INPUT,
         )
         SettingsTextField(
             label = "Keycloak URL",
@@ -416,7 +506,10 @@ private fun WivaTelemetryAddressesTab(
         Button(
             onClick = { viewModel.saveTelemetryEndpoints() },
             enabled = !state.telemetryBusy,
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(ServiceMenuTestTags.TELEMETRY_SAVE_ADDRESSES),
         ) {
             Text("Сохранить адреса")
         }
@@ -482,6 +575,7 @@ private fun WivaTelemetryBanner(state: ServiceUiState) {
         Text(
             text = msg,
             style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.testTag(ServiceMenuTestTags.TELEMETRY_BANNER),
             color =
                 if (state.telemetryBannerIsError) {
                     MaterialTheme.colorScheme.error
