@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    PlayerView в режиме TextureView — необходим для поддержки alpha-прозрачности при crossfade.
+    SurfaceView (default) рендерится вне иерархии View и не поддерживает alpha.
+    surface_type="texture_view" — рендер через GPU-текстуру, прозрачность работает корректно.
+-->
+<androidx.media3.ui.PlayerView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:surface_type="texture_view"
+    app:resize_mode="fixed_height"
+    app:use_controller="false"
+    app:show_buffering="never" />

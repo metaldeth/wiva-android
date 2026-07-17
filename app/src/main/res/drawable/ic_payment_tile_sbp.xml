@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Figma node 1549:362 (Picture), экспорт MCP — иконка СБП на плитке оплаты. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="130dp"
+    android:height="158dp"
+    android:viewportWidth="130"
+    android:viewportHeight="158">
+    <path
+        android:fillColor="#5B57A2"
+        android:pathData="M0,19.5068L21.4235,57.7999V81.1575L0.0251,119.375L0,19.5068Z" />
+    <path
+        android:fillColor="#D90751"
+        android:pathData="M82.2573,43.8662L102.332,31.5623L143.416,31.5239L82.2573,68.9899V43.8662Z" />
+    <path
+        android:fillColor="#FAB718"
+        android:pathData="M82.1443,19.2812L82.2578,69.9799L60.7842,56.7856V-19L82.1443,19.2812Z" />
+    <path
+        android:fillColor="#ED6F26"
+        android:pathData="M143.416,31.5232L102.331,31.5616L82.1443,19.2812L60.7842,-19L143.416,31.5232Z" />
+    <path
+        android:fillColor="#63B22F"
+        android:pathData="M82.2578,119.588V94.9901L60.7842,82.0464L60.796,157.907L82.2578,119.588Z" />
+    <path
+        android:fillColor="#1487C9"
+        android:pathData="M102.282,107.396L21.422,57.7999L0,19.5068L143.329,107.346L102.282,107.396Z" />
+    <path
+        android:fillColor="#017F36"
+        android:pathData="M60.7969,157.907L82.2557,119.588L102.28,107.396L143.327,107.346L60.7969,157.907Z" />
+    <path
+        android:fillColor="#984995"
+        android:pathData="M0.0254,119.375L60.9596,82.0473L40.4738,69.478L21.4238,81.1569L0.0254,119.375Z" />
+</vector>

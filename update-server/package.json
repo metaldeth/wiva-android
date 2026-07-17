@@ -1,0 +1,9 @@
+{
+  "name": "wiva-android-update-server",
+  "version": "1.0.0",
+  "description": "Update server for wiva-android APK distribution",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  }
+}

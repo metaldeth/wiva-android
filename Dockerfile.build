@@ -1,0 +1,84 @@
+# Android SDK + Gradle для сборки wiva-android APK.
+# Без BuildKit-only директив: на раннере должен работать обычный docker build (buildx не обязателен).
+#
+# GitLab CI: docker build --target ci-build — сборка внутри образа, app/build не попадает в workspace раннера.
+FROM eclipse-temurin:17-jdk-jammy AS android-sdk
+
+ARG APT_HTTP_MIRROR=
+RUN set -eux; \
+  if [ -n "$APT_HTTP_MIRROR" ]; then \
+    echo "APT_HTTP_MIRROR=$APT_HTTP_MIRROR"; \
+    find /etc/apt -type f \( -name '*.list' -o -name '*.sources' \) -print | while read -r f; do \
+      sed -i \
+        "s|http://archive.ubuntu.com/ubuntu|${APT_HTTP_MIRROR}|g; \
+         s|https://archive.ubuntu.com/ubuntu|${APT_HTTP_MIRROR}|g; \
+         s|http://security.ubuntu.com/ubuntu|${APT_HTTP_MIRROR}|g; \
+         s|https://security.ubuntu.com/ubuntu|${APT_HTTP_MIRROR}|g" "$f"; \
+    done; \
+  fi
+
+ENV ANDROID_SDK_ROOT=/opt/android-sdk
+ENV PATH=$PATH:$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$ANDROID_SDK_ROOT/platform-tools:$ANDROID_SDK_ROOT/build-tools/35.0.0
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget unzip curl \
+    && rm -rf /var/lib/apt/lists/*
+
+ARG GRADLE_VERSION=8.11.1
+COPY gradle-docker-prebuild/ /gradle-prebuild/
+RUN set -eux; \
+  zip="/gradle-prebuild/gradle-${GRADLE_VERSION}-bin.zip"; \
+  if [ -s "$zip" ]; then \
+    echo "Using Gradle zip from build context"; \
+    cp "$zip" /tmp/gradle-dist.zip; \
+  else \
+    echo "No local Gradle zip, downloading inside image..."; \
+    ok=0; \
+    for url in \
+      "https://mirrors.aliyun.com/gradle/gradle-${GRADLE_VERSION}-bin.zip" \
+      "https://mirrors.cloud.tencent.com/gradle/gradle-${GRADLE_VERSION}-bin.zip" \
+      "https://repo.huaweicloud.com/gradle/gradle-${GRADLE_VERSION}-bin.zip" \
+      "https://services.gradle.org/distributions/gradle-${GRADLE_VERSION}-bin.zip"; do \
+      echo "Trying: $url"; \
+      if wget -4 --timeout=300 -t 2 -q -O /tmp/gradle-dist.zip "$url" && [ -s /tmp/gradle-dist.zip ]; then \
+        ok=1; \
+        break; \
+      fi; \
+      rm -f /tmp/gradle-dist.zip; \
+    done; \
+    test "$ok" = 1; \
+  fi; \
+  unzip -q /tmp/gradle-dist.zip -d /opt; \
+  mv "/opt/gradle-${GRADLE_VERSION}" /opt/gradle; \
+  rm -f /tmp/gradle-dist.zip; \
+  rm -rf /gradle-prebuild
+ENV PATH="/opt/gradle/bin:${PATH}"
+
+RUN mkdir -p $ANDROID_SDK_ROOT/cmdline-tools && \
+    wget -q https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O /tmp/cmdline-tools.zip && \
+    unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-tools-tmp && \
+    mv /tmp/cmdline-tools-tmp/cmdline-tools $ANDROID_SDK_ROOT/cmdline-tools/latest && \
+    rm -rf /tmp/cmdline-tools.zip /tmp/cmdline-tools-tmp
+
+RUN yes | sdkmanager --licenses > /dev/null && \
+    sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools" > /dev/null
+
+RUN chmod -R a+rX /opt/android-sdk /opt/gradle
+
+WORKDIR /app
+
+FROM android-sdk AS ci-build
+ARG STORE_PASSWORD
+ARG KEY_PASSWORD
+ARG KEY_ALIAS
+ARG KEYSTORE_PATH
+ENV STORE_PASSWORD=${STORE_PASSWORD}
+ENV KEY_PASSWORD=${KEY_PASSWORD}
+ENV KEY_ALIAS=${KEY_ALIAS}
+ENV KEYSTORE_PATH=${KEYSTORE_PATH}
+COPY . /app
+RUN chmod +x /app/scripts/docker-android-build.sh
+RUN sh /app/scripts/docker-android-build.sh
+
+FROM android-sdk
+CMD ["sh", "/app/scripts/docker-android-build.sh"]

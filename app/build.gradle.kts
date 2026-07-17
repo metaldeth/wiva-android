@@ -1,0 +1,169 @@
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+    id("org.jetbrains.kotlin.plugin.compose")
+    id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.dagger.hilt.android")
+    id("com.google.devtools.ksp")
+}
+
+android {
+    namespace = "com.wiva.android"
+    compileSdk = 35
+
+    signingConfigs {
+        create("release") {
+            val keystorePath =
+                System.getenv("KEYSTORE_PATH")
+                    ?: (project.findProperty("KEYSTORE_PATH") as String?)
+            val storeFilePath =
+                keystorePath?.let { rootProject.file(it) }
+                    ?: rootProject.file("signing/release.jks")
+            val storePassword =
+                System.getenv("STORE_PASSWORD")
+                    ?: (project.findProperty("STORE_PASSWORD") as String?)
+            val keyAlias =
+                System.getenv("KEY_ALIAS")
+                    ?: (project.findProperty("KEY_ALIAS") as String?)
+            val keyPassword =
+                System.getenv("KEY_PASSWORD")
+                    ?: (project.findProperty("KEY_PASSWORD") as String?)
+
+            val credentialsPresent =
+                storeFilePath.exists() &&
+                    !storePassword.isNullOrBlank() &&
+                    !keyAlias.isNullOrBlank() &&
+                    !keyPassword.isNullOrBlank()
+
+            if (credentialsPresent) {
+                storeFile = storeFilePath
+                this.storePassword = storePassword
+                this.keyAlias = keyAlias
+                this.keyPassword = keyPassword
+            }
+        }
+    }
+
+    defaultConfig {
+        applicationId = "com.wiva.android"
+        minSdk = 25
+        targetSdk = 35
+        versionCode = 166
+        versionName = "12.05.26.8"
+
+        testInstrumentationRunner = "com.wiva.android.WivaHiltTestRunner"
+    }
+
+    buildTypes {
+        debug {
+            val releaseSigning = signingConfigs.getByName("release")
+            signingConfig =
+                releaseSigning.storeFile?.let { releaseSigning }
+        }
+        release {
+            signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro",
+            )
+        }
+    }
+
+    gradle.taskGraph.whenReady {
+        val needsReleaseSigning =
+            allTasks.any {
+                it.path == ":app:assembleRelease" ||
+                    it.path == ":app:bundleRelease" ||
+                    it.path == ":app:installRelease"
+            }
+        if (needsReleaseSigning && signingConfigs.getByName("release").storeFile == null) {
+            throw GradleException(
+                "Release signing is not configured. Set STORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD " +
+                    "(and optional KEYSTORE_PATH) via env or gradle.properties, " +
+                    "or place signing/release.jks.",
+            )
+        }
+    }
+
+    applicationVariants.all {
+        val variant = this
+        outputs.all {
+            val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
+            output.outputFileName = "wiva-android-${variant.versionName}-${variant.buildType.name}.apk"
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
+
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+    }
+}
+
+dependencies {
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
+    implementation(libs.compose.foundation)
+    debugImplementation(libs.compose.ui.tooling)
+
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.activity.compose)
+
+    implementation(libs.navigation.compose)
+    implementation(libs.hilt.navigation.compose)
+
+    implementation(libs.hilt.android)
+    ksp(libs.hilt.compiler)
+
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+
+    implementation(libs.okhttp)
+    implementation(libs.java.websocket)
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.kotlinx.serialization)
+    implementation(libs.kotlinx.serialization.json)
+
+    implementation(libs.timber)
+    implementation(libs.usb.serial.android)
+    implementation(libs.serial.port.android)
+
+    implementation(libs.media3.exoplayer)
+    implementation(libs.media3.ui)
+    implementation(libs.coil.compose)
+    implementation(libs.qrcode.kotlin)
+
+    testImplementation("junit:junit:4.13.2")
+    testImplementation(libs.mockk)
+    testImplementation(libs.coroutines.test)
+    testImplementation(libs.turbine)
+
+    androidTestImplementation(libs.hilt.android.testing)
+    androidTestImplementation(libs.androidx.test.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    kspAndroidTest(libs.hilt.compiler)
+}

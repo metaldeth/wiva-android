@@ -1,0 +1,682 @@
+package com.wiva.android.ui.screens.customer
+
+import com.wiva.android.data.local.db.JsonStoreKeys
+import com.wiva.android.data.network.NetworkTrafficEntry
+import com.wiva.android.data.network.NetworkTrafficLogger
+import com.wiva.android.data.payment.aqsi.AqsiLastOperationSnapshotHolder
+import com.wiva.android.data.payment.aqsi.AqsiRepositoryImpl
+import com.wiva.android.data.payment.aqsi.Arcus2TerminalClient
+import com.wiva.android.data.remote.telemetry.ConnectionState
+import com.wiva.android.data.repository.ConfigRepository
+import com.wiva.android.domain.model.AqsiConfig
+import com.wiva.android.domain.model.AqsiPaymentResult
+import com.wiva.android.domain.model.CardPaymentMethod
+import com.wiva.android.domain.model.CardPaymentMockMode
+import com.wiva.android.domain.model.CardPaymentMockOutcome
+import com.wiva.android.domain.model.CardPaymentResult
+import com.wiva.android.domain.model.MachineRegistration
+import com.wiva.android.domain.model.SBPLink
+import com.wiva.android.domain.model.SBPSettings
+import com.wiva.android.domain.model.SBPStatus
+import com.wiva.android.domain.model.customer.DrinkContainer
+import com.wiva.android.domain.model.customer.DrinkDosage
+import com.wiva.android.domain.model.customer.DrinkPrice
+import com.wiva.android.domain.model.customer.DrinkProduct
+import com.wiva.android.domain.model.customer.DrinkTaste
+import com.wiva.android.domain.repository.MachineInventoryRepository
+import com.wiva.android.domain.repository.NanoKassaRepository
+import com.wiva.android.domain.repository.SBPRepository
+import com.wiva.android.domain.repository.CardPaymentMethodRepository
+import com.wiva.android.domain.repository.CardPaymentMockModeRepository
+import com.wiva.android.domain.usecase.CheckSBPStatusUseCase
+import com.wiva.android.domain.usecase.GetSBPLinkUseCase
+import com.wiva.android.hardware.controller.ControllerGateway
+import com.wiva.android.hardware.controller.ControllerResponseEvent
+import com.wiva.android.hardware.controller.ControllerTrafficEntry
+import com.wiva.android.hardware.controller.WivaControllerTrafficLogger
+import com.wiva.android.services.payment.CardPaymentEventLogger
+import com.wiva.android.services.payment.CardPaymentOrchestrator
+import com.wiva.android.services.payment.PaymentTerminalService
+import com.wiva.android.services.preparing.CustomerPreparingPhase
+import com.wiva.android.services.preparing.PrepareDrinkResult
+import com.wiva.android.services.preparing.PreparingManager
+import com.wiva.android.services.telemetry.WivaTelemetryService
+import com.wiva.android.services.telemetry.SaleSubscribeTopicBody
+import com.wiva.android.data.payment.aqsi.AqsiDiagnosticOutcome
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockk
+import io.mockk.slot
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.yield
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import java.util.concurrent.ExecutorService
+import java.util.concurrent.Executors
+
+/**
+ * Task-05 п.12–14: полный [DrinkListViewModel] + однопоточный [kotlinx.coroutines.Dispatchers.Main],
+ * чтобы отработали корутины [androidx.lifecycle.viewModelScope] без зависания тест-диспетчера.
+ */
+@OptIn(ExperimentalCoroutinesApi::class)
+class DrinkListViewModelTask05IntegrationTest {
+
+    private lateinit var executor: ExecutorService
+    private lateinit var mainDispatcher: CoroutineDispatcher
+
+    @Before
+    fun setup() {
+        executor = Executors.newSingleThreadExecutor()
+        mainDispatcher = executor.asCoroutineDispatcher()
+        Dispatchers.setMain(mainDispatcher)
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+        executor.shutdownNow()
+    }
+
+ /**
+ * Ожидание условия с прокачкой однопоточного `Main`, куда ставит работу [androidx.lifecycle.viewModelScope].
+ * Надёжнее фиксированных [kotlinx.coroutines.delay] для CI.
+ */
+    private suspend fun awaitCondition(
+        timeoutMs: Long = 5000L,
+        condition: () -> Boolean,
+    ): Boolean {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        while (System.currentTimeMillis() < deadline) {
+            if (condition()) return true
+            withContext(mainDispatcher) {}
+            yield()
+        }
+        return false
+    }
+
+ /** Несколько итераций Main после достижения условия (отложенные continuation). */
+    private suspend fun flushMain(times: Int = 12) {
+        repeat(times) {
+            withContext(mainDispatcher) {}
+            yield()
+        }
+    }
+
+    private fun createTestTelemetry(): WivaTelemetryService {
+        val mock = mockk<WivaTelemetryService>(relaxUnitFun = true)
+        every { mock.connectionState } returns
+            MutableStateFlow<ConnectionState>(ConnectionState.Disconnected()).asStateFlow()
+        every { mock.subscribeInfo } returns MutableStateFlow(null).asStateFlow()
+        every { mock.subscriptionLevels } returns MutableStateFlow(null).asStateFlow()
+        every { mock.loyaltyCardClientScans } returns
+            MutableSharedFlow<String>(extraBufferCapacity = 16).asSharedFlow()
+        every { mock.invalidLoyaltyCardScans } returns
+            MutableSharedFlow<Unit>(extraBufferCapacity = 16).asSharedFlow()
+        return mock
+    }
+
+    private fun vmConfigRepo(): ConfigRepository =
+        object : ConfigRepository {
+            private val store =
+                mutableMapOf(
+                    JsonStoreKeys.USE_MOCK_CONTROLLER to "true",
+                    JsonStoreKeys.DEV_FREE_MODE to "true",
+                )
+
+            override suspend fun get(key: String): String? = store[key]
+
+            override suspend fun set(key: String, value: String) {
+                store[key] = value
+            }
+
+            override suspend fun delete(key: String) {
+                store.remove(key)
+            }
+
+            override suspend fun getJson(key: String): String? = store[key]
+
+            override suspend fun setJson(key: String, jsonStr: String) {
+                store[key] = jsonStr
+            }
+        }
+
+    private fun defaultSbpRepo(): SBPRepository {
+        val r = mockk<SBPRepository>(relaxUnitFun = true)
+        coEvery { r.getSettings() } returns SBPSettings(timeoutInSeconds = 120)
+        return r
+    }
+
+    private fun createGatewayAndTerminal(
+        scope: CoroutineScope,
+        telemetry: WivaTelemetryService,
+        configRepository: ConfigRepository = vmConfigRepo(),
+    ): Pair<ControllerGateway, PaymentTerminalService> {
+        val gateway = mockk<ControllerGateway>(relaxUnitFun = true)
+        val responses = MutableSharedFlow<ControllerResponseEvent>(extraBufferCapacity = 16)
+        every { gateway.incomingResponses } returns responses.asSharedFlow()
+        every { gateway.isPhysicalControllerConnected } returns MutableStateFlow(true).asStateFlow()
+        val pts = PaymentTerminalService(gateway, telemetry, scope, configRepository, CardPaymentEventLogger())
+        return gateway to pts
+    }
+
+    private fun createViewModel(
+        cardPaymentOrchestrator: CardPaymentOrchestrator,
+        preparingManager: PreparingManager,
+        telemetryService: WivaTelemetryService,
+        getSBPLinkUseCase: GetSBPLinkUseCase,
+        sbpRepository: SBPRepository = defaultSbpRepo(),
+    ): DrinkListViewModel {
+        val payScope = CoroutineScope(SupervisorJob() + mainDispatcher)
+        val (gw, pts) = createGatewayAndTerminal(payScope, telemetryService)
+        val inventoryRepo = mockk<MachineInventoryRepository>(relaxUnitFun = true)
+        every { inventoryRepo.inventoryRevision } returns MutableStateFlow(0).asStateFlow()
+        val checkSbp = mockk<CheckSBPStatusUseCase>(relaxUnitFun = true)
+        coEvery { checkSbp(any()) } returns Result.success(SBPStatus.Pending)
+        val nano = mockk<NanoKassaRepository>(relaxUnitFun = true)
+        val networkTraffic = mockk<NetworkTrafficLogger>(relaxUnitFun = true)
+        every { networkTraffic.entries } returns MutableStateFlow<List<NetworkTrafficEntry>>(emptyList()).asStateFlow()
+        val controllerTraffic = mockk<WivaControllerTrafficLogger>(relaxUnitFun = true)
+        every { controllerTraffic.entries } returns
+            MutableStateFlow<List<ControllerTrafficEntry>>(emptyList()).asStateFlow()
+        return DrinkListViewModel(
+            vmConfigRepo(),
+            inventoryRepo,
+            preparingManager,
+            gw,
+            pts,
+            telemetryService,
+            getSBPLinkUseCase,
+            checkSbp,
+            sbpRepository,
+            nano,
+            networkTraffic,
+            controllerTraffic,
+            cardPaymentOrchestrator,
+        )
+    }
+
+    private fun sampleContainer(): DrinkContainer {
+        val taste = DrinkTaste(1, "Cola", null, null)
+        val product =
+            DrinkProduct(
+                id = 1,
+                name = "Coke",
+                taste = taste,
+                dosage = DrinkDosage(1.0, 300, 1.0, 1.0),
+                dPrices =
+                    listOf(
+                        DrinkPrice(300, 100),
+                        DrinkPrice(700, 150),
+                    ),
+            )
+        return DrinkContainer(
+            containerNumber = 3,
+            sodaStatus = null,
+            product = product,
+            volumeMl = 1000,
+            minVolumeMl = 0,
+            isActive = true,
+        )
+    }
+
+    private class FakeCardMethodRepo(
+        var selected: CardPaymentMethod,
+    ) : CardPaymentMethodRepository {
+        override suspend fun getSelected(): CardPaymentMethod = selected
+
+        override suspend fun setSelected(method: CardPaymentMethod) {
+            selected = method
+        }
+    }
+
+    private class FakeMockModeRepo(
+        private var mode: CardPaymentMockMode = CardPaymentMockMode.Disabled,
+    ) : CardPaymentMockModeRepository {
+        override suspend fun getMode(): CardPaymentMockMode = mode
+
+        override suspend fun setMode(mode: CardPaymentMockMode) {
+            this.mode = mode
+        }
+
+        override suspend fun getOutcome(): CardPaymentMockOutcome = CardPaymentMockOutcome.Approved
+
+        override suspend fun setOutcome(outcome: CardPaymentMockOutcome) = Unit
+    }
+
+    private class Task05RecordingArcus(
+        var payResult: Result<AqsiPaymentResult> = Result.success(AqsiPaymentResult.Approved),
+    ) : Arcus2TerminalClient {
+        override fun interruptCurrentTcpSession() {}
+
+        override fun testTcpChannel(host: String, port: Int, timeoutMs: Long): Result<Unit> =
+            Result.success(Unit)
+
+        override fun initiatePurchase(
+            host: String,
+            port: Int,
+            timeoutMs: Long,
+            amountKopecks: Int,
+        ): Result<AqsiPaymentResult> = payResult
+
+        override fun cancelPurchase(host: String, port: Int, timeoutMs: Long): Result<Unit> =
+            Result.success(Unit)
+    }
+
+    private fun aqsiTestConfig(host: String = "192.168.1.10"): ConfigRepository =
+        object : ConfigRepository {
+            private val json =
+                Json {
+                    ignoreUnknownKeys = true
+                    encodeDefaults = true
+                }
+            private val store =
+                mutableMapOf(
+                    JsonStoreKeys.AQSI_SETTINGS to
+                        json.encodeToString(
+                            AqsiConfig.serializer(),
+                            AqsiConfig(host = host, port = 16107, timeoutMs = 15000L),
+                        ),
+                )
+
+            override suspend fun get(key: String): String? = store[key]
+
+            override suspend fun set(key: String, value: String) {
+                store[key] = value
+            }
+
+            override suspend fun delete(key: String) {
+                store.remove(key)
+            }
+
+            override suspend fun getJson(key: String): String? = store[key]
+
+            override suspend fun setJson(key: String, jsonStr: String) {
+                store[key] = jsonStr
+            }
+        }
+
+    private fun createSubscriptionVmWithAqsiOrchestrator(
+        holder: AqsiLastOperationSnapshotHolder,
+        arcus: Task05RecordingArcus,
+        telemetryService: WivaTelemetryService = createTestTelemetry(),
+        preparingOverride: PreparingManager? = null,
+    ): DrinkListViewModel {
+        val aqsiRepo =
+            AqsiRepositoryImpl(
+                configRepository = aqsiTestConfig(),
+                arcus2 = arcus,
+                lastOperationSnapshotHolder = holder,
+                paymentEventLogger = CardPaymentEventLogger(),
+                ioDispatcher = Dispatchers.Unconfined,
+            )
+        val payScope = CoroutineScope(SupervisorJob() + mainDispatcher)
+        val (gw, pts) = createGatewayAndTerminal(payScope, telemetryService)
+        coEvery { gw.simulateResponseForTests(any(), any()) } returns Unit
+        val orch =
+            CardPaymentOrchestrator(
+                FakeCardMethodRepo(CardPaymentMethod.Aqsi),
+                pts,
+                aqsiRepo,
+                FakeMockModeRepo(),
+                CardPaymentEventLogger(),
+            )
+        val preparing =
+            preparingOverride
+                ?: mockk<PreparingManager>(relaxUnitFun = true).also {
+                    every { it.customerPhase } returns
+                        MutableStateFlow(CustomerPreparingPhase.Idle).asStateFlow()
+                }
+        val getSbp = mockk<GetSBPLinkUseCase>(relaxUnitFun = true)
+        val inventoryRepo = mockk<MachineInventoryRepository>(relaxUnitFun = true)
+        every { inventoryRepo.inventoryRevision } returns MutableStateFlow(0).asStateFlow()
+        val checkSbp = mockk<CheckSBPStatusUseCase>(relaxUnitFun = true)
+        coEvery { checkSbp(any()) } returns Result.success(SBPStatus.Pending)
+        val nano = mockk<NanoKassaRepository>(relaxUnitFun = true)
+        val networkTraffic = mockk<NetworkTrafficLogger>(relaxUnitFun = true)
+        every { networkTraffic.entries } returns
+            MutableStateFlow<List<NetworkTrafficEntry>>(emptyList()).asStateFlow()
+        val controllerTraffic = mockk<WivaControllerTrafficLogger>(relaxUnitFun = true)
+        every { controllerTraffic.entries } returns
+            MutableStateFlow<List<ControllerTrafficEntry>>(emptyList()).asStateFlow()
+        return DrinkListViewModel(
+            vmConfigRepo(),
+            inventoryRepo,
+            preparing,
+            gw,
+            pts,
+            telemetryService,
+            getSbp,
+            checkSbp,
+            defaultSbpRepo(),
+            nano,
+            networkTraffic,
+            controllerTraffic,
+            orch,
+        )
+    }
+
+    @Test
+    fun task05_12_subscriptionSbpDoesNotCallCardOrchestrator() =
+        runBlocking {
+            val orch = mockk<CardPaymentOrchestrator>(relaxUnitFun = true)
+            val getSbp = mockk<GetSBPLinkUseCase>(relaxUnitFun = true)
+            coEvery { getSbp(any()) } returns Result.success(SBPLink("order-t05", "https://pay/", "qr-data"))
+            val tel = createTestTelemetry()
+            val preparing = mockk<PreparingManager>(relaxUnitFun = true)
+            every { preparing.customerPhase } returns
+                MutableStateFlow(CustomerPreparingPhase.Idle).asStateFlow()
+            val vm = createViewModel(orch, preparing, tel, getSbp)
+            vm.setUiStateForUnitTests(
+                DrinkListUiState(
+                    scannedSubscriptionClientId = "client-uuid",
+                    subscriptionLevelUuid = "level-uuid",
+                    subscriptionPriceRub = 100,
+                    subscriptionPurchaseFlowActive = true,
+                ),
+            )
+            vm.startSubscriptionPayment(isSbp = true)
+            assertTrue(
+                awaitCondition {
+                    vm.state.value.paymentSheetStep == PaymentSheetStep.Sbp
+                },
+            )
+            flushMain()
+            coVerify(exactly = 0) { orch.pay(any(), any(), any(), any()) }
+        }
+
+    @Test
+    fun task05_13_subscriptionCardDecline_doesNotSendSaleSubscribeTopic() =
+        runBlocking {
+            val orch = mockk<CardPaymentOrchestrator>(relaxUnitFun = true)
+            coEvery { orch.pay(any(), any(), any(), any()) } returns CardPaymentResult.Failed("declined")
+            val tel = createTestTelemetry()
+            val preparing = mockk<PreparingManager>(relaxUnitFun = true)
+            every { preparing.customerPhase } returns
+                MutableStateFlow(CustomerPreparingPhase.Idle).asStateFlow()
+            val getSbp = mockk<GetSBPLinkUseCase>(relaxUnitFun = true)
+            val vm = createViewModel(orch, preparing, tel, getSbp)
+            vm.setUiStateForUnitTests(
+                DrinkListUiState(
+                    scannedSubscriptionClientId = "client-uuid",
+                    subscriptionLevelUuid = "level-uuid",
+                    subscriptionPriceRub = 100,
+                    subscriptionPurchaseFlowActive = true,
+                ),
+            )
+            vm.startSubscriptionPayment(isSbp = false)
+            assertTrue(
+                awaitCondition {
+                    val s = vm.state.value
+                    s.paymentError != null && !s.isProcessingPay
+                },
+            )
+            flushMain()
+            coVerify(exactly = 0) { tel.sendSaleSubscribeTopic(any()) }
+        }
+
+    @Test
+    fun task05_13_drinkCardDecline_doesNotCallPrepareDrink() =
+        runBlocking {
+            val orch = mockk<CardPaymentOrchestrator>(relaxUnitFun = true)
+            coEvery { orch.pay(any(), any(), any(), any()) } returns CardPaymentResult.Failed("declined")
+            val tel = createTestTelemetry()
+            val preparing = mockk<PreparingManager>(relaxUnitFun = true)
+            every { preparing.customerPhase } returns
+                MutableStateFlow(CustomerPreparingPhase.Idle).asStateFlow()
+            val getSbp = mockk<GetSBPLinkUseCase>(relaxUnitFun = true)
+            val vm = createViewModel(orch, preparing, tel, getSbp)
+            vm.setUiStateForUnitTests(
+                DrinkListUiState(
+                    activeContainer = sampleContainer(),
+                    selectedVolumeMl = 300,
+                    paymentSheetVisible = true,
+                ),
+            )
+            vm.startCardPayment { _, _, _, _, _, _ -> }
+            assertTrue(
+                awaitCondition {
+                    val s = vm.state.value
+                    s.paymentError != null && !s.isProcessingPay
+                },
+            )
+            flushMain()
+            coVerify(exactly = 0) {
+                preparing.prepareDrink(any(), any(), any(), any(), any(), any())
+            }
+        }
+
+    @Test
+    fun task05_14_aqsiApprovedFromOrder_updatesDiagnosticHolder() =
+        runBlocking {
+            val holder = AqsiLastOperationSnapshotHolder()
+            val arcus =
+                Task05RecordingArcus(
+                    payResult = Result.success(AqsiPaymentResult.Approved),
+                )
+            val vm = createSubscriptionVmWithAqsiOrchestrator(holder, arcus)
+            vm.setUiStateForUnitTests(
+                DrinkListUiState(
+                    scannedSubscriptionClientId = "client-uuid",
+                    subscriptionLevelUuid = "level-uuid",
+                    subscriptionPriceRub = 50,
+                    subscriptionPurchaseFlowActive = true,
+                ),
+            )
+            vm.startSubscriptionPayment(isSbp = false)
+            assertTrue(awaitCondition { holder.getSnapshot()?.outcome == AqsiDiagnosticOutcome.APPROVED })
+            flushMain()
+            assertEquals(AqsiDiagnosticOutcome.APPROVED, holder.getSnapshot()?.outcome)
+        }
+
+    @Test
+    fun task05_14_aqsiDeclineFromOrder_updatesDiagnosticHolder() =
+        runBlocking {
+            val holder = AqsiLastOperationSnapshotHolder()
+            val arcus =
+                Task05RecordingArcus(
+                    payResult = Result.success(AqsiPaymentResult.Declined(publicCode = "051")),
+                )
+            val vm = createSubscriptionVmWithAqsiOrchestrator(holder, arcus)
+            vm.setUiStateForUnitTests(
+                DrinkListUiState(
+                    scannedSubscriptionClientId = "client-uuid",
+                    subscriptionLevelUuid = "level-uuid",
+                    subscriptionPriceRub = 50,
+                    subscriptionPurchaseFlowActive = true,
+                ),
+            )
+            vm.startSubscriptionPayment(isSbp = false)
+            assertTrue(awaitCondition { holder.getSnapshot()?.outcome == AqsiDiagnosticOutcome.DECLINED })
+            flushMain()
+            assertEquals(AqsiDiagnosticOutcome.DECLINED, holder.getSnapshot()?.outcome)
+        }
+
+    @Test
+    fun task05_14_aqsiErrorFromOrder_updatesDiagnosticHolder() =
+        runBlocking {
+            val holder = AqsiLastOperationSnapshotHolder()
+            val arcus =
+                Task05RecordingArcus(
+                    payResult = Result.success(AqsiPaymentResult.Error(safeMessage = "timeout")),
+                )
+            val vm = createSubscriptionVmWithAqsiOrchestrator(holder, arcus)
+            vm.setUiStateForUnitTests(
+                DrinkListUiState(
+                    scannedSubscriptionClientId = "client-uuid",
+                    subscriptionLevelUuid = "level-uuid",
+                    subscriptionPriceRub = 50,
+                    subscriptionPurchaseFlowActive = true,
+                ),
+            )
+            vm.startSubscriptionPayment(isSbp = false)
+            assertTrue(awaitCondition { holder.getSnapshot()?.outcome == AqsiDiagnosticOutcome.ERROR })
+            flushMain()
+            assertEquals(AqsiDiagnosticOutcome.ERROR, holder.getSnapshot()?.outcome)
+        }
+
+    @Test
+    fun task05_14_aqsiCancelledFromOrder_updatesDiagnosticHolder() =
+        runBlocking {
+            val holder = AqsiLastOperationSnapshotHolder()
+            val arcus =
+                Task05RecordingArcus(
+                    payResult = Result.success(AqsiPaymentResult.Cancelled),
+                )
+            val vm = createSubscriptionVmWithAqsiOrchestrator(holder, arcus)
+            vm.setUiStateForUnitTests(
+                DrinkListUiState(
+                    scannedSubscriptionClientId = "client-uuid",
+                    subscriptionLevelUuid = "level-uuid",
+                    subscriptionPriceRub = 50,
+                    subscriptionPurchaseFlowActive = true,
+                ),
+            )
+            vm.startSubscriptionPayment(isSbp = false)
+            assertTrue(awaitCondition { holder.getSnapshot()?.outcome == AqsiDiagnosticOutcome.CANCELLED })
+            flushMain()
+            assertEquals(AqsiDiagnosticOutcome.CANCELLED, holder.getSnapshot()?.outcome)
+        }
+
+    @Test
+    fun task07_aqsiApprovedSubscription_sendsSaleSubscribeWithCardPayMethod() =
+        runBlocking {
+            val tel = createTestTelemetry()
+            coEvery { tel.loadMachineRegistration() } returns
+                MachineRegistration(serialNumber = "E-01", machineId = "1")
+            coEvery { tel.sendSaleSubscribeTopic(any()) } returns Result.success(Unit)
+            every { tel.startSubscriptionSaleTimer(any(), any(), any(), any()) } returns Unit
+
+            val holder = AqsiLastOperationSnapshotHolder()
+            val arcus =
+                Task05RecordingArcus(
+                    payResult = Result.success(AqsiPaymentResult.Approved),
+                )
+            val vm = createSubscriptionVmWithAqsiOrchestrator(holder, arcus, tel)
+            vm.setUiStateForUnitTests(
+                DrinkListUiState(
+                    scannedSubscriptionClientId = "client-uuid",
+                    subscriptionLevelUuid = "level-uuid",
+                    subscriptionPriceRub = 50,
+                    subscriptionPurchaseFlowActive = true,
+                ),
+            )
+            vm.startSubscriptionPayment(isSbp = false)
+            assertTrue(
+                awaitCondition {
+                    val s = vm.state.value
+                    holder.getSnapshot()?.outcome == AqsiDiagnosticOutcome.APPROVED &&
+                        (
+                            s.paymentSheetStep == PaymentSheetStep.SubscriptionReceipt ||
+                                s.paymentError != null
+                        )
+                },
+            )
+            flushMain(24)
+            assertNull(
+                "unexpected payment error: ${vm.state.value.paymentError}",
+                vm.state.value.paymentError,
+            )
+            assertEquals(PaymentSheetStep.SubscriptionReceipt, vm.state.value.paymentSheetStep)
+            val bodySlot = slot<SaleSubscribeTopicBody>()
+            coVerify(exactly = 1) { tel.sendSaleSubscribeTopic(capture(bodySlot)) }
+            assertEquals("CARD", bodySlot.captured.payMethod)
+        }
+
+    @Test
+    fun task07_aqsiCancelledSubscription_doesNotSendSaleSubscribeTopic() =
+        runBlocking {
+            val tel = createTestTelemetry()
+            coEvery { tel.sendSaleSubscribeTopic(any()) } returns Result.success(Unit)
+            val holder = AqsiLastOperationSnapshotHolder()
+            val arcus =
+                Task05RecordingArcus(
+                    payResult = Result.success(AqsiPaymentResult.Cancelled),
+                )
+            val vm = createSubscriptionVmWithAqsiOrchestrator(holder, arcus, tel)
+            vm.setUiStateForUnitTests(
+                DrinkListUiState(
+                    scannedSubscriptionClientId = "client-uuid",
+                    subscriptionLevelUuid = "level-uuid",
+                    subscriptionPriceRub = 50,
+                    subscriptionPurchaseFlowActive = true,
+                ),
+            )
+            vm.startSubscriptionPayment(isSbp = false)
+            assertTrue(
+                awaitCondition {
+                    val s = vm.state.value
+                    s.paymentError != null && !s.isProcessingPay
+                },
+            )
+            flushMain()
+            coVerify(exactly = 0) { tel.sendSaleSubscribeTopic(any()) }
+        }
+
+    @Test
+    fun task07_aqsiApprovedDrink_prepareDrinkUsesCardSaleMethodLikePax() =
+        runBlocking {
+            val tel = createTestTelemetry()
+            val preparing = mockk<PreparingManager>(relaxUnitFun = true)
+            every { preparing.customerPhase } returns
+                MutableStateFlow(CustomerPreparingPhase.Idle).asStateFlow()
+            coEvery { preparing.prepareDrink(any(), any(), any(), any(), any(), any()) } returns
+                PrepareDrinkResult.Ok(estSeconds = 30)
+
+            val holder = AqsiLastOperationSnapshotHolder()
+            val arcus =
+                Task05RecordingArcus(
+                    payResult = Result.success(AqsiPaymentResult.Approved),
+                )
+            val vm =
+                createSubscriptionVmWithAqsiOrchestrator(
+                    holder,
+                    arcus,
+                    tel,
+                    preparingOverride = preparing,
+                )
+            vm.setUiStateForUnitTests(
+                DrinkListUiState(
+                    activeContainer = sampleContainer(),
+                    selectedVolumeMl = 300,
+                    paymentSheetVisible = true,
+                ),
+            )
+            vm.startCardPayment { _, _, _, _, _, _ -> }
+            assertTrue(
+                awaitCondition {
+                    vm.state.value.activeContainer == null && vm.state.value.selectedVolumeMl == null
+                },
+            )
+            flushMain()
+            coVerify(exactly = 1) {
+                preparing.prepareDrink(
+                    tasteId = 1,
+                    volumeMl = 300,
+                    waterOption = any(),
+                    concentrationRatio = any(),
+                    saleTotalPriceRub = 100.0,
+                    salePayMethod = "CARD",
+                )
+            }
+        }
+}

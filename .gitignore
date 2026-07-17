@@ -1,0 +1,39 @@
+# Gradle
+.gradle/
+.gradle-docker/
+**/build/
+gradle-app.setting
+!gradle-wrapper.jar
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+*.ipr
+*.iws
+out/
+captures/
+
+# Kotlin
+.kotlin/
+
+# Local
+local.properties
+
+# macOS
+.DS_Store
+
+# NDK
+.externalNativeBuild/
+.cxx/
+
+# OTA: собранные APK на хосте (раздаётся через update-server)
+/release/
+gradle-docker-prebuild/*.zip
+.env
+
+# ---- JVM keys / signing (как kiosk-android: jks в приватном репо) ----
+*.keystore
+
+*.jks
+signing/
+
