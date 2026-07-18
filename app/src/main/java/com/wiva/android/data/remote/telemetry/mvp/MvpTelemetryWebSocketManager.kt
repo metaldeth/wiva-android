@@ -40,7 +40,7 @@ import kotlin.coroutines.resume
 import kotlin.random.Random
 
 /**
- * WebSocket simple-telemetry MVP: hello → ONLINE, heartbeat с ack, reconnect 1/2/5/10/30 с + jitter.
+ * WebSocket simple-telemetry MVP: JWT auth, hello → ONLINE, heartbeat с ack, RFC6455 ping/pong.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @Singleton
@@ -69,15 +69,27 @@ constructor(
     private var authFailure = false
     private var temperatureProvider: () -> Double? = { null }
     private val heartbeatTrafficLogCounter = AtomicInteger(0)
+    private val transportPingLogCounter = AtomicInteger(0)
 
     private companion object {
         val RECONNECT_DELAYS_MS = longArrayOf(1_000, 2_000, 5_000, 10_000, 30_000)
         const val DEFAULT_HEARTBEAT_INTERVAL_SEC = 30
         const val AUTH_CLOSE_CODE = 4401
         const val HEARTBEAT_TRAFFIC_LOG_EVERY_N = 20
+        const val TRANSPORT_PING_LOG_EVERY_N = 10
     }
 
-    fun connect(wsUrl: String, credential: String, temperatureProvider: () -> Double?) {
+    fun reportAuthFailure(message: String) {
+        authFailure = true
+        _connectionState.value = ConnectionState.Error(message)
+    }
+
+    fun connect(
+        wsUrl: String,
+        tokenProvider: suspend () -> String?,
+        temperatureProvider: () -> Double? = { null },
+        onAuthFailure: () -> Unit = {},
+    ) {
         this.temperatureProvider = temperatureProvider
         connectJob?.cancel()
         connectJob =
@@ -86,72 +98,89 @@ constructor(
                     authFailure = false
                     var attempt = 0
                     while (isActive && !authFailure) {
-                    helloReceived = false
-                    heartbeatJob?.cancel()
-                    _connectionState.value = ConnectionState.Connecting
-                    logSystem("MVP WS: подключение $wsUrl")
+                        helloReceived = false
+                        heartbeatJob?.cancel()
+                        _connectionState.value = ConnectionState.Connecting
+                        logSystem("MVP WS: подключение $wsUrl")
 
-                    val delayMs = reconnectDelayMs(attempt)
-                    if (attempt > 0) {
-                        _connectionState.value = ConnectionState.Disconnected(delayMs)
-                        delay(delayMs)
-                    }
-
-                    try {
-                        suspendCancellableCoroutine { cont ->
-                            cont.invokeOnCancellation { activeClient?.close() }
-
-                            val client =
-                                MvpWsClient(
-                                    uri = URI.create(wsUrl),
-                                    bearer = "Bearer $credential",
-                                    onOpenCallback = { handshake ->
-                                        if (handshake.httpStatus == 401.toShort() || handshake.httpStatus == 403.toShort()) {
-                                            authFailure = true
-                                            _connectionState.value =
-                                                ConnectionState.Error("Ошибка авторизации WS (HTTP ${handshake.httpStatus})")
-                                            logSystem("MVP WS: auth failure HTTP ${handshake.httpStatus}")
-                                            if (cont.isActive) cont.resume(Unit) {}
-                                            return@MvpWsClient
-                                        }
-                                        logSystem("MVP WS: сокет открыт HTTP ${handshake.httpStatus}")
-                                    },
-                                    onText = { text -> handleIncoming(text) },
-                                    onClosed = { code, reason ->
-                                        if (code == AUTH_CLOSE_CODE || code == 1008) {
-                                            authFailure = true
-                                            _connectionState.value =
-                                                ConnectionState.Error("Ошибка авторизации WS: $reason")
-                                        }
-                                        if (cont.isActive) cont.resume(Unit) {}
-                                    },
-                                    onErrorCallback = {
-                                        if (cont.isActive) cont.resume(Unit) {}
-                                    },
-                                )
-                            activeClient = client
-                            client.connect()
+                        val delayMs = reconnectDelayMs(attempt)
+                        if (attempt > 0) {
+                            _connectionState.value = ConnectionState.Disconnected(delayMs)
+                            delay(delayMs)
                         }
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (e: Exception) {
-                        Timber.e(e, "MvpTelemetry WS connect exception")
-                    }
 
-                    activeClient?.close()
-                    activeClient = null
-                    heartbeatJob?.cancel()
+                        val bearerToken =
+                            runCatching { tokenProvider() }.getOrElse {
+                                Timber.w(it, "MvpTelemetry WS token provider failed")
+                                null
+                            }
+                        if (bearerToken.isNullOrBlank()) {
+                            authFailure = true
+                            if (_connectionState.value !is ConnectionState.Error) {
+                                _connectionState.value = ConnectionState.Error("Не удалось получить JWT")
+                            }
+                            break
+                        }
 
-                    if (authFailure) break
-                    if (helloReceived) {
-                        attempt = 0
-                    } else {
-                        attempt++
-                    }
+                        try {
+                            suspendCancellableCoroutine { cont ->
+                                cont.invokeOnCancellation { activeClient?.close() }
 
-                    if (!helloReceived && !authFailure) {
-                        _connectionState.value = ConnectionState.Disconnected(reconnectDelayMs(attempt))
-                    }
+                                val client =
+                                    MvpWsClient(
+                                        uri = URI.create(wsUrl),
+                                        bearer = "Bearer $bearerToken",
+                                        onOpenCallback = { handshake ->
+                                            if (handshake.httpStatus == 401.toShort() || handshake.httpStatus == 403.toShort()) {
+                                                authFailure = true
+                                                _connectionState.value =
+                                                    ConnectionState.Error("Ошибка авторизации WS (HTTP ${handshake.httpStatus})")
+                                                logSystem("MVP WS: auth failure HTTP ${handshake.httpStatus}")
+                                                onAuthFailure()
+                                                if (cont.isActive) cont.resume(Unit) {}
+                                                return@MvpWsClient
+                                            }
+                                            logSystem("MVP WS: сокет открыт HTTP ${handshake.httpStatus}")
+                                        },
+                                        onText = { text -> handleIncoming(text) },
+                                        onClosed = { code, reason ->
+                                            if (code == AUTH_CLOSE_CODE || code == 1008 || code == 1002) {
+                                                authFailure = true
+                                                _connectionState.value =
+                                                    ConnectionState.Error("Ошибка авторизации WS: $reason")
+                                                onAuthFailure()
+                                            }
+                                            if (cont.isActive) cont.resume(Unit) {}
+                                        },
+                                        onErrorCallback = {
+                                            if (cont.isActive) cont.resume(Unit) {}
+                                        },
+                                        onTransportPing = { logTransportPing() },
+                                        onTransportPong = { logTransportPong() },
+                                    )
+                                activeClient = client
+                                client.connect()
+                            }
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            Timber.e(e, "MvpTelemetry WS connect exception")
+                        }
+
+                        activeClient?.close()
+                        activeClient = null
+                        heartbeatJob?.cancel()
+
+                        if (authFailure) break
+                        if (helloReceived) {
+                            attempt = 0
+                        } else {
+                            attempt++
+                        }
+
+                        if (!helloReceived && !authFailure) {
+                            _connectionState.value = ConnectionState.Disconnected(reconnectDelayMs(attempt))
+                        }
                     }
                 }
             }
@@ -167,6 +196,7 @@ constructor(
         helloReceived = false
         authFailure = false
         heartbeatTrafficLogCounter.set(0)
+        transportPingLogCounter.set(0)
         _connectionState.value = ConnectionState.Disconnected()
     }
 
@@ -246,6 +276,21 @@ constructor(
         return n == 1 || n % HEARTBEAT_TRAFFIC_LOG_EVERY_N == 0
     }
 
+    private fun shouldLogTransportPing(): Boolean {
+        val n = transportPingLogCounter.incrementAndGet()
+        return n == 1 || n % TRANSPORT_PING_LOG_EVERY_N == 0
+    }
+
+    private fun logTransportPing() {
+        if (!shouldLogTransportPing()) return
+        logSystem("MVP WS transport: PING (server → client)")
+    }
+
+    private fun logTransportPong() {
+        if (!shouldLogTransportPing()) return
+        logSystem("MVP WS transport: PONG (client → server)")
+    }
+
     private fun logSystem(summary: String) {
         networkTrafficLogger.log(
             channel = NetworkTrafficChannel.WS,
@@ -292,6 +337,8 @@ constructor(
         private val onText: (String) -> Unit,
         private val onClosed: (Int, String) -> Unit,
         private val onErrorCallback: () -> Unit,
+        private val onTransportPing: () -> Unit,
+        private val onTransportPong: () -> Unit,
     ) : WebSocketClient(uri) {
         init {
             addHeader("Authorization", bearer)
@@ -308,6 +355,12 @@ constructor(
         override fun onError(ex: Exception) {
             Timber.w(ex, "MvpTelemetry WS")
             onErrorCallback()
+        }
+
+        override fun onWebsocketPing(conn: org.java_websocket.WebSocket?, f: org.java_websocket.framing.Framedata?) {
+            onTransportPing()
+            super.onWebsocketPing(conn, f)
+            onTransportPong()
         }
     }
 }

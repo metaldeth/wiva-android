@@ -4,6 +4,7 @@ import com.wiva.android.BuildConfig
 import com.wiva.android.data.local.db.JsonStoreKeys
 import com.wiva.android.data.location.WivaDeviceLocationReader
 import com.wiva.android.data.remote.telemetry.ConnectionState
+import com.wiva.android.data.remote.telemetry.mvp.RegistrationKeyUtils
 import com.wiva.android.data.remote.telemetry.mvp.SimpleTelemetryCoordinator
 import com.wiva.android.data.remote.telemetry.mvp.TelemetryIsoTimestamps
 import com.wiva.android.data.remote.telemetry.WivaTelemetryAuth
@@ -228,7 +229,7 @@ constructor(
     }
 
  /**
- * Регистрация машины: MVP enroll или legacy regKey.
+ * Регистрация машины: REG register (MVP), legacy enroll или legacy regKey REST.
  */
     suspend fun registerMachine(
         regKey: String,
@@ -237,7 +238,12 @@ constructor(
     ): Result<Unit> =
         withContext(Dispatchers.IO) {
             if (loadTelemetryConfig().useMvpProtocol) {
-                return@withContext mvpCoordinator.enrollMachine(serialNumber, rebind)
+                val normalizedKey = RegistrationKeyUtils.normalize(regKey)
+                return@withContext if (RegistrationKeyUtils.isValid(normalizedKey)) {
+                    mvpCoordinator.registerMachine(normalizedKey, serialNumber)
+                } else {
+                    mvpCoordinator.enrollMachine(serialNumber, rebind)
+                }
             }
             runCatching {
                 val t = loadTelemetryConfig()

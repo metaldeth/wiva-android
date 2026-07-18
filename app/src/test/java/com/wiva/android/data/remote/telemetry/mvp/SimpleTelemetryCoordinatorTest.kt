@@ -1,6 +1,7 @@
 package com.wiva.android.data.remote.telemetry.mvp
 
 import com.wiva.android.data.local.db.JsonStoreKeys
+import com.wiva.android.data.local.security.InMemoryMachineSecretStore
 import com.wiva.android.data.network.NetworkTrafficLogger
 import com.wiva.android.data.repository.ConfigRepository
 import com.wiva.android.domain.model.TelemetryConfig
@@ -47,6 +48,8 @@ private class InMemoryConfigRepository : ConfigRepository {
 class SimpleTelemetryCoordinatorTest {
     private lateinit var server: MockWebServer
     private lateinit var configRepository: InMemoryConfigRepository
+    private lateinit var machineSecretStore: InMemoryMachineSecretStore
+    private lateinit var jwtCache: MachineJwtCache
     private lateinit var coordinator: SimpleTelemetryCoordinator
 
     @Before
@@ -54,6 +57,8 @@ class SimpleTelemetryCoordinatorTest {
         server = MockWebServer()
         server.start()
         configRepository = InMemoryConfigRepository()
+        machineSecretStore = InMemoryMachineSecretStore()
+        jwtCache = MachineJwtCache(SystemEpochMillisClock())
         val json =
             Json {
                 ignoreUnknownKeys = true
@@ -75,6 +80,8 @@ class SimpleTelemetryCoordinatorTest {
                         networkTrafficLogger = mockk<NetworkTrafficLogger>(relaxed = true),
                     ),
                 configRepository = configRepository,
+                machineSecretStore = machineSecretStore,
+                jwtCache = jwtCache,
                 appScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()),
             )
     }
@@ -191,7 +198,7 @@ class SimpleTelemetryCoordinatorTest {
         val wsManager = mockk<MvpTelemetryWebSocketManager>(relaxed = true)
         every { wsManager.connectionState } returns
             MutableStateFlow(com.wiva.android.data.remote.telemetry.ConnectionState.Disconnected())
-        every { wsManager.connect(any(), any(), any()) } answers {
+        every { wsManager.connect(any(), any(), any(), any()) } answers {
             connectedUrl = firstArg()
         }
         every { wsManager.disconnect() } just runs
@@ -200,6 +207,8 @@ class SimpleTelemetryCoordinatorTest {
                 apiClient = mockk(relaxed = true),
                 wsManager = wsManager,
                 configRepository = configRepository,
+                machineSecretStore = machineSecretStore,
+                jwtCache = jwtCache,
                 appScope = this,
             )
         // when
@@ -235,6 +244,8 @@ class SimpleTelemetryCoordinatorTest {
                         networkTrafficLogger = mockk(relaxed = true),
                     ),
                 configRepository = configRepository,
+                machineSecretStore = machineSecretStore,
+                jwtCache = jwtCache,
                 appScope = this,
             )
         localCoordinator.saveTelemetryConfig(TelemetryConfig(useMvpProtocol = true))

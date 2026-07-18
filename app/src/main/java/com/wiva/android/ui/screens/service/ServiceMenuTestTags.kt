@@ -23,6 +23,7 @@ object ServiceMenuTestTags {
     const val TELEMETRY_REBIND_CONFIRM = "telemetry_rebind_confirm"
     const val TELEMETRY_REBIND_CANCEL = "telemetry_rebind_cancel"
     const val TELEMETRY_REG_KEY_INPUT = "telemetry_reg_key_input"
+    const val TELEMETRY_QR_SCANNED_BANNER = "telemetry_qr_scanned_banner"
     const val TELEMETRY_BANNER = "telemetry_banner"
     const val TELEMETRY_BUSY = "telemetry_busy"
 
@@ -100,6 +101,7 @@ object ServiceMenuTestTags {
             TELEMETRY_REBIND_CONFIRM,
             TELEMETRY_REBIND_CANCEL,
             TELEMETRY_REG_KEY_INPUT,
+            TELEMETRY_QR_SCANNED_BANNER,
             TELEMETRY_BANNER,
             TELEMETRY_BUSY,
             TELEMETRY_ADDRESSES_ROOT,

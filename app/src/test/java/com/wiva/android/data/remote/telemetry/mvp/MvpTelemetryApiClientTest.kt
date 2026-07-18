@@ -6,6 +6,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -242,5 +243,103 @@ class MvpTelemetryApiClientTest {
         // then
         val recorded = server.takeRequest()
         assertTrue(recorded.body.readUtf8().contains("\"rebind\":true"))
+    }
+
+    @Test
+    fun `register posts exact body without enrollment header`() {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(201)
+                .setBody(
+                    """
+                    {
+                      "id":"id-1",
+                      "machineId":"m-4",
+                      "serialNumber":"WIVA-000004",
+                      "installationId":"inst-1",
+                      "machineSecret":"sec_value",
+                      "tokenEndpoint":"/api/v1/machines/token",
+                      "wsUrl":"wss://194.67.74.147/api/v1/machines/ws",
+                      "protocolVersion":1,
+                      "heartbeatIntervalSeconds":30
+                    }
+                    """.trimIndent(),
+                ),
+        )
+        val request =
+            RegisterRequestDto(
+                registrationKey = "REG-0123456789AB",
+                serialNumber = "WIVA-000004",
+                installationId = "inst-1",
+                device = EnrollDeviceDto("A", "B", "7"),
+                app = EnrollAppDto("1", 1),
+            )
+        val result =
+            kotlinx.coroutines.runBlocking {
+                client.register(server.url("/").toString().removeSuffix("/"), request)
+            }
+        assertTrue(result.isSuccess)
+        val recorded = server.takeRequest()
+        assertEquals(null, recorded.getHeader("X-Enrollment-Key"))
+        assertTrue(recorded.path!!.endsWith("/api/v1/machines/register"))
+        val body = recorded.body.readUtf8()
+        assertTrue(body.contains("\"registrationKey\":\"REG-0123456789AB\""))
+        assertTrue(body.contains("\"serialNumber\":\"WIVA-000004\""))
+        assertFalse(body.contains("sec_value"))
+    }
+
+    @Test
+    fun `register conflict 403 REBIND_NOT_ALLOWED throws typed exception`() {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(403)
+                .setBody(
+                    """
+                    {
+                      "statusCode": 403,
+                      "message": {
+                        "code": "REBIND_NOT_ALLOWED",
+                        "message": "Rebind not allowed"
+                      },
+                      "error": "Forbidden"
+                    }
+                    """.trimIndent(),
+                ),
+        )
+        val request =
+            RegisterRequestDto(
+                registrationKey = "REG-0123456789AB",
+                serialNumber = "WIVA-000004",
+                installationId = "inst-1",
+                device = EnrollDeviceDto("A", "B", "7"),
+                app = EnrollAppDto("1", 1),
+            )
+        val result =
+            kotlinx.coroutines.runBlocking {
+                client.register(server.url("/").toString().removeSuffix("/"), request)
+            }
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull() is RebindNotAllowedException)
+    }
+
+    @Test
+    fun `fetchToken parses jwt response`() {
+        server.enqueue(
+            MockResponse()
+                .setResponseCode(200)
+                .setBody("""{"accessToken":"jwt_test","tokenType":"Bearer","expiresIn":3600}"""),
+        )
+        val result =
+            kotlinx.coroutines.runBlocking {
+                client.fetchToken(
+                    server.url("/").toString().removeSuffix("/"),
+                    "/api/v1/machines/token",
+                    TokenRequestDto("WIVA-000004", "sec_test"),
+                )
+            }
+        assertTrue(result.isSuccess)
+        assertEquals("jwt_test", result.getOrThrow().accessToken)
+        val recorded = server.takeRequest()
+        assertEquals(null, recorded.getHeader("X-Enrollment-Key"))
     }
 }

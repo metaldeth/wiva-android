@@ -22,16 +22,23 @@ class ScannerProtocolTest {
 
     @Test
     fun classifyBarcode_regPrefix_isRegistrationKey() {
-        val e = ScannerProtocol.classifyBarcode("REG:XYZ-9")
+        val e = ScannerProtocol.classifyBarcode("REG:0123456789AB")
         assertTrue(e is BarcodeEvent.RegistrationKey)
-        assertEquals("XYZ-9", (e as BarcodeEvent.RegistrationKey).code)
+        assertEquals("REG-0123456789AB", (e as BarcodeEvent.RegistrationKey).code)
     }
 
     @Test
     fun classifyBarcode_regDashPrefix_isRegistrationKey() {
-        val e = ScannerProtocol.classifyBarcode("REG-XYZ-9")
+        val e = ScannerProtocol.classifyBarcode("REG-0123456789AB")
         assertTrue(e is BarcodeEvent.RegistrationKey)
-        assertEquals("XYZ-9", (e as BarcodeEvent.RegistrationKey).code)
+        assertEquals("REG-0123456789AB", (e as BarcodeEvent.RegistrationKey).code)
+    }
+
+    @Test
+    fun classifyBarcode_jsonQr_isTelemetryRegistrationQr() {
+        val json = """{"type":"WIVA_TELEMETRY_REGISTRATION","version":1,"registrationKey":"REG-0123456789AB"}"""
+        val e = ScannerProtocol.classifyBarcode(json)
+        assertTrue(e is BarcodeEvent.TelemetryRegistrationQr)
     }
 
     @Test

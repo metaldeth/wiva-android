@@ -1,6 +1,7 @@
 package com.wiva.android.data.remote.telemetry.mvp
 
 import com.wiva.android.data.local.db.JsonStoreKeys
+import com.wiva.android.data.local.security.InMemoryMachineSecretStore
 import com.wiva.android.data.network.NetworkTrafficLogger
 import com.wiva.android.data.repository.ConfigRepository
 import com.wiva.android.domain.model.MachineRegistration
@@ -23,6 +24,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class SimpleTelemetryCoordinatorLifecycleTest {
     private val json = Json { ignoreUnknownKeys = true }
+    private val secretStore = InMemoryMachineSecretStore()
 
     @Test
     fun `saveTelemetryConfig updates cached mvp protocol flag`() = runTest {
@@ -63,13 +65,15 @@ class SimpleTelemetryCoordinatorLifecycleTest {
         val wsManager = mockk<MvpTelemetryWebSocketManager>(relaxed = true)
         every { wsManager.connectionState } returns
             MutableStateFlow(com.wiva.android.data.remote.telemetry.ConnectionState.Disconnected())
-        every { wsManager.connect(any(), any(), any()) } answers { connectCalls++ }
+        every { wsManager.connect(any(), any(), any(), any()) } answers { connectCalls++ }
         every { wsManager.disconnect() } just runs
         val coordinator =
             SimpleTelemetryCoordinator(
                 apiClient = mockk(relaxed = true),
                 wsManager = wsManager,
                 configRepository = configRepository,
+                machineSecretStore = secretStore,
+                jwtCache = MachineJwtCache(SystemEpochMillisClock()),
                 appScope = this,
             )
         // when
@@ -105,6 +109,8 @@ class SimpleTelemetryCoordinatorLifecycleTest {
                     networkTrafficLogger = mockk<NetworkTrafficLogger>(relaxed = true),
                 ),
             configRepository = configRepository,
+            machineSecretStore = secretStore,
+            jwtCache = MachineJwtCache(SystemEpochMillisClock()),
             appScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()),
         )
 

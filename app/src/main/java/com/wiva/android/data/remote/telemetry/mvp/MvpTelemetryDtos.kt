@@ -50,6 +50,41 @@ data class EnrollResponseDto(
 )
 
 @Serializable
+data class RegisterRequestDto(
+    val registrationKey: String,
+    val serialNumber: String,
+    val installationId: String,
+    val device: EnrollDeviceDto? = null,
+    val app: EnrollAppDto,
+)
+
+@Serializable
+data class RegisterResponseDto(
+    val id: String,
+    val machineId: String,
+    val serialNumber: String,
+    val installationId: String,
+    val machineSecret: String,
+    val tokenEndpoint: String,
+    val wsUrl: String,
+    val protocolVersion: Int,
+    val heartbeatIntervalSeconds: Int,
+)
+
+@Serializable
+data class TokenRequestDto(
+    val serialNumber: String,
+    val machineSecret: String,
+)
+
+@Serializable
+data class TokenResponseDto(
+    val accessToken: String,
+    val tokenType: String,
+    val expiresIn: Int,
+)
+
+@Serializable
 data class EnrollErrorBodyDto(
     val code: String? = null,
     val message: String? = null,

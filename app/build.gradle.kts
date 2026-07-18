@@ -51,8 +51,8 @@ android {
         applicationId = "com.wiva.android"
         minSdk = 25
         targetSdk = 35
-        versionCode = 170
-        versionName = "12.05.26.12"
+        versionCode = 171
+        versionName = "12.05.26.13"
 
         testInstrumentationRunner = "com.wiva.android.WivaHiltTestRunner"
 
@@ -174,6 +174,7 @@ dependencies {
     implementation(libs.media3.ui)
     implementation(libs.coil.compose)
     implementation(libs.qrcode.kotlin)
+    implementation(libs.security.crypto)
 
     testImplementation("junit:junit:4.13.2")
     testImplementation(libs.mockk)

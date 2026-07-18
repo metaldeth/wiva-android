@@ -42,6 +42,9 @@ object EnrollConflictCodeParser {
         if (text.contains("SERIAL_ALREADY_BOUND")) {
             return "SERIAL_ALREADY_BOUND"
         }
+        if (text.contains("REBIND_NOT_ALLOWED")) {
+            return "REBIND_NOT_ALLOWED"
+        }
         return null
     }
 }

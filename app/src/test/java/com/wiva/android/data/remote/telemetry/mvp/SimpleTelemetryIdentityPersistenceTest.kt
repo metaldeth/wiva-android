@@ -1,6 +1,7 @@
 package com.wiva.android.data.remote.telemetry.mvp
 
 import com.wiva.android.data.local.db.JsonStoreKeys
+import com.wiva.android.data.local.security.InMemoryMachineSecretStore
 import com.wiva.android.data.repository.ConfigRepository
 import com.wiva.android.domain.model.MachineRegistration
 import io.mockk.coEvery
@@ -24,6 +25,8 @@ class SimpleTelemetryIdentityPersistenceTest {
                 apiClient = mockk(relaxed = true),
                 wsManager = mockk(relaxed = true),
                 configRepository = configRepository,
+                machineSecretStore = InMemoryMachineSecretStore(),
+                jwtCache = MachineJwtCache(SystemEpochMillisClock()),
                 appScope = this,
             )
         // when

@@ -7,14 +7,17 @@ data class MachineRegistration(
     val machineId: String = "",
     val serialNumber: String = "",
     val kioskId: String = "",
- /** Machine credential (`mch_…`) после enroll в MVP или legacy secretKey. */
+ /** Legacy machine credential (`mch_…`) — только fallback до REG; не stable secret. */
     val machineKey: String = "",
     val machineCredential: String = "",
     val installationId: String = "",
     val reservationToken: String = "",
     val reservationExpiresAt: String = "",
     val wsProtocolUrl: String = "",
+    val tokenEndpoint: String = "/api/v1/machines/token",
     val regKey: String = "",
+ /** `stable_secret` после REG; `legacy_credential` до REG; пусто — не зарегистрирован. */
+    val authScheme: String = "",
     val isRegistered: Boolean = false,
     val enrolled: Boolean = false,
  /** Из legacy `machineInfo`. */
@@ -22,12 +25,34 @@ data class MachineRegistration(
     val modelId: String = "",
 ) {
     companion object {
+        const val AUTH_SCHEME_STABLE_SECRET = "stable_secret"
+        const val AUTH_SCHEME_LEGACY_CREDENTIAL = "legacy_credential"
+
         fun migrateLegacy(reg: MachineRegistration): MachineRegistration {
-            val credential =
+            val authScheme =
                 when {
-                    reg.machineCredential.isNotBlank() -> reg.machineCredential
-                    reg.machineKey.startsWith("mch_") -> reg.machineKey
-                    else -> reg.machineCredential
+                    reg.authScheme.isNotBlank() -> reg.authScheme
+                    reg.enrolled && reg.machineCredential.isBlank() && reg.machineKey.isBlank() ->
+                        AUTH_SCHEME_STABLE_SECRET
+                    else -> {
+                        val credential =
+                            when {
+                                reg.machineCredential.isNotBlank() -> reg.machineCredential
+                                reg.machineKey.startsWith("mch_") -> reg.machineKey
+                                else -> reg.machineCredential
+                            }
+                        if (credential.isNotBlank()) AUTH_SCHEME_LEGACY_CREDENTIAL else ""
+                    }
+                }
+            val credential =
+                if (authScheme == AUTH_SCHEME_LEGACY_CREDENTIAL) {
+                    when {
+                        reg.machineCredential.isNotBlank() -> reg.machineCredential
+                        reg.machineKey.startsWith("mch_") -> reg.machineKey
+                        else -> reg.machineCredential
+                    }
+                } else {
+                    ""
                 }
             val registered = reg.enrolled || reg.isRegistered
             val serial = reg.serialNumber.ifBlank { "E-01" }.let {
@@ -35,10 +60,12 @@ data class MachineRegistration(
             }
             return reg.copy(
                 machineCredential = credential,
-                machineKey = if (credential.isNotBlank()) credential else reg.machineKey,
+                machineKey = if (credential.isNotBlank()) credential else "",
+                authScheme = authScheme,
                 isRegistered = registered,
                 enrolled = registered,
                 serialNumber = serial,
+                tokenEndpoint = reg.tokenEndpoint.ifBlank { "/api/v1/machines/token" },
                 wsProtocolUrl =
                     if (TelemetryConfig.isLegacyWsUrl(reg.wsProtocolUrl)) {
                         ""
@@ -49,6 +76,8 @@ data class MachineRegistration(
         }
 
         fun isEnrolled(reg: MachineRegistration): Boolean =
-            reg.enrolled || (reg.isRegistered && reg.machineCredential.isNotBlank())
+            reg.enrolled ||
+                (reg.isRegistered &&
+                    (reg.authScheme == AUTH_SCHEME_STABLE_SECRET || reg.machineCredential.isNotBlank()))
     }
 }

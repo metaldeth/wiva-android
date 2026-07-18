@@ -60,13 +60,91 @@ CMD (legacy): `set WIVA_TELEMETRY_ENROLLMENT_KEY=...`
 
 
 
-- Base URL: поле `apiUrl` в `TelemetryConfig` (JsonStore `telemetryConfig`), по умолчанию `TelemetryConfig.DEFAULT_API_URL`.
+- Base URL: поле `apiUrl` в `TelemetryConfig` (JsonStore `telemetryConfig`), по умолчанию `https://194.67.74.147` (`TelemetryConfig.DEFAULT_API_URL`).
 
-- Заголовок на reserve/enroll: `X-Enrollment-Key: <BuildConfig.TELEMETRY_ENROLLMENT_KEY>`.
+- **Активный MVP-поток:** REG register + JWT WS (без `X-Enrollment-Key`).
+
+- **Legacy (gated):** reserve/enroll с `X-Enrollment-Key: <BuildConfig.TELEMETRY_ENROLLMENT_KEY>`.
 
 
 
-### Reserve serial
+### QR v1 (регистрация)
+
+
+
+Компактный JSON для QR:
+
+
+
+```json
+
+{
+
+  "type": "WIVA_TELEMETRY_REGISTRATION",
+
+  "version": 1,
+
+  "registrationKey": "REG-0123456789AB",
+
+  "serialNumber": "WIVA-000004",
+
+  "apiUrl": "https://194.67.74.147"
+
+}
+
+```
+
+
+
+Также принимается ручной ввод / raw scan `REG-` + 12 символов Crockford (`0-9`, `A-H`, `J-N`, `P-T`, `V-Z`; без `I`, `L`, `O`, `U`). Пример: `REG-0123456789AB`. Сканер заполняет поля в «Телеметрия → Подключение» без автоматической регистрации (баннер «QR считан»). `apiUrl` из QR принимается только по **HTTPS** и только если host+port совпадает с сохранённым адресом API.
+
+
+
+### Register (REG)
+
+
+
+`POST /api/v1/machines/register`
+
+
+
+- Тело: `{ registrationKey, serialNumber, installationId, device?, app }`.
+
+- Ответ `201`: `{ id, machineId, serialNumber, installationId, machineSecret, tokenEndpoint, wsUrl, protocolVersion, heartbeatIntervalSeconds }`.
+
+- `machineSecret` сохраняется только в `EncryptedSharedPreferences` (`MachineSecretStore`), **не** в JsonStore и не в logcat/traffic.
+
+
+
+### Token (JWT)
+
+
+
+`POST /api/v1/machines/token`
+
+
+
+- Тело: `{ serialNumber, machineSecret }`.
+
+- Ответ: `{ accessToken, tokenType, expiresIn }`.
+
+- JWT **не персистится**; при каждом reconnect/expiry запрашивается заново.
+
+
+
+### Миграция WIVA-000004
+
+
+
+- До REG: legacy `mch_…` в JsonStore используется как Bearer для WS (fallback).
+
+- После успешного `/register` с тем же `installationId` + serial: stable secret в encrypted store, credential очищается из JSON, WS переключается на JWT.
+
+- Повторная выдача REG-ключа на сервере **не** требует повторного сканирования на уже зарегистрированном Android — reconnect использует сохранённый secret.
+
+
+
+### Reserve serial (legacy)
 
 
 
@@ -82,7 +160,7 @@ CMD (legacy): `set WIVA_TELEMETRY_ENROLLMENT_KEY=...`
 
 
 
-### Enroll
+### Enroll (legacy)
 
 
 
@@ -148,7 +226,7 @@ Nest возвращает вложенный объект в `message`:
 
 
 
-Клиент (`MvpTelemetryApiClient`): парсит `message.code` (Nest nested) или flat `code`; при `SERIAL_ALREADY_BOUND` — `SerialAlreadyBoundException` → rebind UI. Другие 409 (например `INSTALLATION_ALREADY_ENROLLED`) — обычная ошибка без rebind.
+Клиент (`MvpTelemetryApiClient`): парсит `message.code` (Nest nested) или flat `code`; при `SERIAL_ALREADY_BOUND` (409) — `SerialAlreadyBoundException` → rebind UI. При `REBIND_NOT_ALLOWED` (403) — `RebindNotAllowedException` → баннер «MASTER/ADMIN должен разрешить rebind на 15 минут в веб-интерфейсе» (без rebind-confirm). Другие 409 (например `INSTALLATION_ALREADY_ENROLLED`) — обычная ошибка без rebind.
 
 
 
@@ -176,11 +254,13 @@ Nest возвращает вложенный объект в `message`:
 
 
 
-- Auth: `Authorization: Bearer <machine credential>`.
+- Auth: `Authorization: Bearer <JWT>` (stable secret flow) или legacy `Bearer <mch_…>` до REG.
 
 - Конверт: `{ type, messageId, sentAt, payload [, correlationId] }`; `ack` с `correlationId`.
 
 - Heartbeat по интервалу из `hello` (сервер по умолчанию 30 с).
+
+- **RFC6455 ping/pong:** сервер шлёт transport PING; клиент отвечает PONG через `onWebsocketPing` (Java-WebSocket). В traffic log — sampled `MVP WS transport: PING/PONG` без секретов.
 
 
 
@@ -204,7 +284,7 @@ Nest возвращает вложенный объект в `message`:
 
 - `telemetryConfig.useMvpProtocol` — `true` по умолчанию.
 
-- `machineRegistration`: `installationId`, `machineCredential`, `serialNumber`, `machineId`, `wsProtocolUrl`, `enrolled`.
+- `machineRegistration`: `installationId`, `serialNumber`, `machineId`, `wsProtocolUrl`, `tokenEndpoint`, `authScheme`, `enrolled` — **без** `machineSecret` / JWT / plaintext REG.
 
 
 
@@ -264,8 +344,9 @@ d(resourceId="com.wiva.android:id/telemetry_reserve_serial").click()
 | Текст «Подключено» / «Не подключено» | `telemetry_connection_status_text` |
 | Кнопка «Реконнект» | `telemetry_connection_reconnect` |
 | Поле serial | `telemetry_serial_input` |
-| «Запросить свободный serial» | `telemetry_reserve_serial` |
-| «Регистрация» | `telemetry_register` |
+| REG-ключ | `telemetry_reg_key_input` |
+| Баннер «QR считан» | `telemetry_qr_scanned_banner` |
+| «Register» | `telemetry_register` |
 | «Подключить WS» | `telemetry_connect_ws` |
 | «Отключить WS» | `telemetry_disconnect_ws` |
 | Карточка rebind 409 | `telemetry_rebind_card` |

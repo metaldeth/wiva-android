@@ -1,10 +1,14 @@
 package com.wiva.android.di
 
+import com.wiva.android.data.local.security.EncryptedMachineSecretStore
+import com.wiva.android.data.local.security.MachineSecretStore
 import com.wiva.android.data.remote.telemetry.WivaTelemetryEventBus
 import com.wiva.android.data.remote.telemetry.WivaTelemetryWebSocketManager
 import com.wiva.android.data.network.NetworkTrafficLogger
 import com.wiva.android.data.remote.telemetry.TelemetryApiService
+import com.wiva.android.data.remote.telemetry.mvp.EpochMillisClock
 import com.wiva.android.data.remote.telemetry.mvp.MvpTelemetryApiClient
+import com.wiva.android.data.remote.telemetry.mvp.SystemEpochMillisClock
 import com.wiva.android.domain.model.TelemetryConfig
 import dagger.Module
 import dagger.Provides
@@ -60,6 +64,10 @@ object TelemetryModule {
 
     @Provides
     @Singleton
+    fun provideMachineSecretStore(store: EncryptedMachineSecretStore): MachineSecretStore = store
+
+    @Provides
+    @Singleton
     fun provideWivaTelemetryWebSocketManager(
         eventBus: WivaTelemetryEventBus,
         @AppIoScope appScope: CoroutineScope,
@@ -70,6 +78,10 @@ object TelemetryModule {
             appScope,
             networkTrafficLogger,
         )
+
+    @Provides
+    @Singleton
+    fun provideEpochMillisClock(): EpochMillisClock = SystemEpochMillisClock()
 
     @Provides
     @Singleton

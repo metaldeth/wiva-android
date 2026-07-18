@@ -1,5 +1,6 @@
 package com.wiva.android.hardware.scanner
 
+import com.wiva.android.data.remote.telemetry.mvp.RegistrationKeyUtils
 import com.wiva.android.domain.model.BarcodeEvent
 
 object ScannerProtocol {
@@ -25,11 +26,12 @@ object ScannerProtocol {
         val subscriptionClientId = extractSubscriptionClientId(trimmed)
         return when {
             subscriptionClientId != null -> BarcodeEvent.ClientLoyaltyCard(subscriptionClientId)
- // Полная строка в телеметрию authCodeRequestExport,.
+            trimmed.startsWith("{") -> BarcodeEvent.TelemetryRegistrationQr(trimmed)
             trimmed.startsWith("EMP:") -> BarcodeEvent.EmployeeKey(trimmed)
             trimmed.startsWith("KEY-") -> BarcodeEvent.EmployeeKey(trimmed)
-            trimmed.startsWith("REG-") -> BarcodeEvent.RegistrationKey(trimmed.removePrefix("REG-"))
-            trimmed.startsWith("REG:") -> BarcodeEvent.RegistrationKey(trimmed.removePrefix("REG:"))
+            trimmed.startsWith("REG-") || trimmed.startsWith("REG:") -> {
+                BarcodeEvent.RegistrationKey(RegistrationKeyUtils.normalize(trimmed))
+            }
             trimmed.all { it.isDigit() || it == '-' } && trimmed.length in 8..20 ->
                 BarcodeEvent.ProductBarcode(trimmed)
             else -> BarcodeEvent.UnknownBarcode(trimmed)

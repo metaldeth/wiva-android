@@ -2,6 +2,7 @@ package com.wiva.android.data.remote.telemetry.mvp
 
 import android.os.Build
 import com.wiva.android.BuildConfig
+import com.wiva.android.data.local.security.MachineSecretStore
 import com.wiva.android.data.remote.telemetry.ConnectionState
 import com.wiva.android.data.repository.ConfigRepository
 import com.wiva.android.di.AppIoScope
@@ -23,8 +24,7 @@ import kotlinx.serialization.json.Json
 import timber.log.Timber
 
 /**
- * Координатор simple-telemetry MVP: reserve/enroll REST + WS lifecycle.
- * Legacy Keycloak/topic-протокол не используется.
+ * Координатор simple-telemetry MVP: REG register + JWT WS + legacy enroll fallback.
  */
 @Singleton
 class SimpleTelemetryCoordinator
@@ -33,6 +33,8 @@ constructor(
     private val apiClient: MvpTelemetryApiClient,
     private val wsManager: MvpTelemetryWebSocketManager,
     private val configRepository: ConfigRepository,
+    private val machineSecretStore: MachineSecretStore,
+    private val jwtCache: MachineJwtCache,
     @AppIoScope private val appScope: CoroutineScope,
 ) {
     private val json =
@@ -92,6 +94,18 @@ constructor(
     }
 
     suspend fun saveMachineRegistration(reg: MachineRegistration) {
+        val sanitized =
+            reg.copy(
+                machineCredential = "",
+                machineKey = "",
+            )
+        configRepository.setJson(
+            com.wiva.android.data.local.db.JsonStoreKeys.MACHINE_REGISTRATION,
+            json.encodeToString(MachineRegistration.serializer(), sanitized),
+        )
+    }
+
+    private suspend fun persistRegistrationMetadata(reg: MachineRegistration) {
         configRepository.setJson(
             com.wiva.android.data.local.db.JsonStoreKeys.MACHINE_REGISTRATION,
             json.encodeToString(MachineRegistration.serializer(), reg),
@@ -103,7 +117,10 @@ constructor(
         if (updated.installationId.isBlank()) {
             updated = updated.copy(installationId = UUID.randomUUID().toString())
         }
-        if (updated.machineCredential.isBlank()) {
+        if (updated.authScheme != MachineRegistration.AUTH_SCHEME_STABLE_SECRET &&
+            updated.machineCredential.isBlank() &&
+            !machineSecretStore.hasSecret(updated.serialNumber)
+        ) {
             updated =
                 updated.copy(
                     machineCredential =
@@ -112,12 +129,85 @@ constructor(
                         } else {
                             MachineCredentialGenerator.generate()
                         },
+                    authScheme = MachineRegistration.AUTH_SCHEME_LEGACY_CREDENTIAL,
                 )
         }
-        if (updated != reg) saveMachineRegistration(updated)
+        if (updated != reg) {
+            configRepository.setJson(
+                com.wiva.android.data.local.db.JsonStoreKeys.MACHINE_REGISTRATION,
+                json.encodeToString(MachineRegistration.serializer(), updated),
+            )
+        }
         return updated
     }
 
+    suspend fun hasStableSecret(serialNumber: String): Boolean =
+        machineSecretStore.hasSecret(SerialNumberUtils.normalize(serialNumber))
+
+    suspend fun registerMachine(
+        registrationKey: String,
+        serialNumber: String,
+    ): Result<Unit> {
+        val normalizedKey = RegistrationKeyUtils.normalize(registrationKey)
+        RegistrationKeyUtils.validationMessage(normalizedKey)?.let { msg ->
+            return Result.failure(IllegalArgumentException(msg))
+        }
+        val normalizedSerial = SerialNumberUtils.normalize(serialNumber)
+        SerialNumberUtils.validationMessage(normalizedSerial)?.let { msg ->
+            return Result.failure(IllegalArgumentException(msg))
+        }
+        val config = loadTelemetryConfig()
+        val reg = ensureIdentity(loadMachineRegistration())
+        val request =
+            RegisterRequestDto(
+                registrationKey = normalizedKey,
+                serialNumber = normalizedSerial,
+                installationId = reg.installationId,
+                device =
+                    EnrollDeviceDto(
+                        manufacturer = Build.MANUFACTURER.orEmpty(),
+                        model = Build.MODEL.orEmpty(),
+                        androidVersion = Build.VERSION.RELEASE.orEmpty(),
+                    ),
+                app =
+                    EnrollAppDto(
+                        versionName = BuildConfig.VERSION_NAME,
+                        versionCode = BuildConfig.VERSION_CODE,
+                    ),
+            )
+        return apiClient
+            .register(config.apiUrl, request)
+            .map { response ->
+                machineSecretStore.saveSecret(response.serialNumber, response.machineSecret)
+                val wsUrl =
+                    MvpTelemetryUrlResolver.resolveWsUrl(
+                        apiBaseUrl = config.apiUrl,
+                        enrolledWsUrl = response.wsUrl,
+                        configuredWsUrl = config.wsUrl,
+                    )
+                val updated =
+                    reg.copy(
+                        serialNumber = response.serialNumber.ifBlank { normalizedSerial },
+                        machineId = response.machineId.ifBlank { response.id },
+                        installationId = response.installationId.ifBlank { reg.installationId },
+                        wsProtocolUrl = wsUrl,
+                        tokenEndpoint = response.tokenEndpoint,
+                        regKey = normalizedKey,
+                        authScheme = MachineRegistration.AUTH_SCHEME_STABLE_SECRET,
+                        machineCredential = "",
+                        machineKey = "",
+                        isRegistered = true,
+                        enrolled = true,
+                        reservationToken = "",
+                        reservationExpiresAt = "",
+                    )
+                jwtCache.invalidate()
+                persistRegistrationMetadata(updated)
+                Timber.i("SimpleTelemetry: registered serial=${updated.serialNumber}, auth=stable_secret")
+            }
+    }
+
+    /** Legacy enroll с X-Enrollment-Key — только для обратной совместимости. */
     suspend fun reserveFreeSerial(): Result<String> {
         val config = loadTelemetryConfig()
         val reg = ensureIdentity(loadMachineRegistration())
@@ -125,17 +215,22 @@ constructor(
             .reserveSerial(config.apiUrl, reg.installationId)
             .map { response ->
                 val normalized = SerialNumberUtils.normalize(response.serialNumber)
-                saveMachineRegistration(
-                    reg.copy(
-                        serialNumber = normalized,
-                        reservationToken = response.reservationToken,
-                        reservationExpiresAt = response.expiresAt,
+                configRepository.setJson(
+                    com.wiva.android.data.local.db.JsonStoreKeys.MACHINE_REGISTRATION,
+                    json.encodeToString(
+                        MachineRegistration.serializer(),
+                        reg.copy(
+                            serialNumber = normalized,
+                            reservationToken = response.reservationToken,
+                            reservationExpiresAt = response.expiresAt,
+                        ),
                     ),
                 )
                 normalized
             }
     }
 
+    /** Legacy enroll с X-Enrollment-Key — только для обратной совместимости. */
     suspend fun enrollMachine(serialNumber: String, rebind: Boolean): Result<Unit> {
         val normalized = SerialNumberUtils.normalize(serialNumber)
         SerialNumberUtils.validationMessage(normalized)?.let { msg ->
@@ -178,14 +273,18 @@ constructor(
                         machineId = response.machineId.ifBlank { reg.machineId },
                         machineKey = reg.machineCredential,
                         machineCredential = reg.machineCredential,
+                        authScheme = MachineRegistration.AUTH_SCHEME_LEGACY_CREDENTIAL,
                         wsProtocolUrl = wsUrl,
                         isRegistered = true,
                         enrolled = true,
                         reservationToken = "",
                         reservationExpiresAt = "",
                     )
-                saveMachineRegistration(reg)
-                Timber.i("SimpleTelemetry: enrolled serial=${reg.serialNumber}, ws=$wsUrl")
+                configRepository.setJson(
+                    com.wiva.android.data.local.db.JsonStoreKeys.MACHINE_REGISTRATION,
+                    json.encodeToString(MachineRegistration.serializer(), reg),
+                )
+                Timber.i("SimpleTelemetry: legacy enrolled serial=${reg.serialNumber}")
             }
     }
 
@@ -223,12 +322,7 @@ constructor(
         val config = loadTelemetryConfig()
         val reg = ensureIdentity(loadMachineRegistration())
         if (!MachineRegistration.isEnrolled(reg)) {
-            Timber.w("SimpleTelemetry: enroll required ($reason)")
-            return
-        }
-        val credential = reg.machineCredential.ifBlank { reg.machineKey }
-        if (credential.isBlank()) {
-            Timber.w("SimpleTelemetry: credential missing ($reason)")
+            Timber.w("SimpleTelemetry: registration required ($reason)")
             return
         }
         val wsUrl =
@@ -238,8 +332,58 @@ constructor(
                 configuredWsUrl = config.wsUrl,
             )
         Timber.i("SimpleTelemetry: WS ($reason) url=$wsUrl")
-        wsManager.connect(wsUrl, credential) { null }
+        wsManager.connect(
+            wsUrl = wsUrl,
+            tokenProvider = { resolveWsBearerToken(config, reg) },
+            temperatureProvider = { null },
+            onAuthFailure = { jwtCache.invalidate() },
+        )
+    }
+
+    private suspend fun resolveWsBearerToken(
+        config: TelemetryConfig,
+        reg: MachineRegistration,
+    ): String? {
+        val serial = reg.serialNumber
+        val stableSecret = machineSecretStore.getSecret(serial)
+        if (!stableSecret.isNullOrBlank()) {
+            return jwtCache
+                .getAccessToken(
+                    serialNumber = serial,
+                    machineSecret = stableSecret,
+                ) {
+                    apiClient.fetchToken(
+                        baseUrl = config.apiUrl,
+                        tokenEndpoint = reg.tokenEndpoint,
+                        requestBody =
+                            TokenRequestDto(
+                                serialNumber = serial,
+                                machineSecret = stableSecret,
+                            ),
+                    )
+                }.getOrElse { error ->
+                    Timber.w(error, "SimpleTelemetry: token fetch failed")
+                    if (error is TokenAuthException) {
+                        wsManager.reportAuthFailure("Ошибка авторизации JWT")
+                    }
+                    return null
+                }
+        }
+        val legacyCredential =
+            reg.machineCredential.ifBlank {
+                if (reg.machineKey.startsWith("mch_")) reg.machineKey else ""
+            }
+        if (legacyCredential.isNotBlank()) {
+            return legacyCredential
+        }
+        Timber.w("SimpleTelemetry: no auth material for WS")
+        return null
     }
 
     suspend fun isMvpProtocolEnabled(): Boolean = cachedUseMvpProtocol
+
+    internal suspend fun obtainWsBearerTokenForTests(
+        config: TelemetryConfig,
+        reg: MachineRegistration,
+    ): String? = resolveWsBearerToken(config, reg)
 }

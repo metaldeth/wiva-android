@@ -5,8 +5,11 @@ private val jsonSecretPatterns =
         Regex("""\"extApiToken\"\s*:\s*\"[^\"]*\"""", RegexOption.IGNORE_CASE),
         Regex("""\"kassaToken\"\s*:\s*\"[^\"]*\"""", RegexOption.IGNORE_CASE),
         Regex("""\"secret\"\s*:\s*\"[^\"]*\"""", RegexOption.IGNORE_CASE),
+        Regex("""\"machineSecret\"\s*:\s*\"[^\"]*\"""", RegexOption.IGNORE_CASE),
+        Regex("""\"registrationKey\"\s*:\s*\"[^\"]*\"""", RegexOption.IGNORE_CASE),
         Regex("""\"key\"\s*:\s*\"[^\"]*\"""", RegexOption.IGNORE_CASE),
         Regex("""\"authorization\"\s*:\s*\"[^\"]*\"""", RegexOption.IGNORE_CASE),
+        Regex("""\"accessToken\"\s*:\s*\"[^\"]*\"""", RegexOption.IGNORE_CASE),
         Regex("""\"token\"\s*:\s*\"[^\"]*\"""", RegexOption.IGNORE_CASE),
     )
 

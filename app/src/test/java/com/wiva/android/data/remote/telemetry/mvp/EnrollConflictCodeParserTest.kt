@@ -60,6 +60,26 @@ class EnrollConflictCodeParserTest {
     }
 
     @Test
+    fun `parseCode reads nest REBIND_NOT_ALLOWED`() {
+        assertEquals(
+            "REBIND_NOT_ALLOWED",
+            EnrollConflictCodeParser.parseCode(
+                json,
+                """
+                {
+                  "statusCode": 403,
+                  "message": {
+                    "code": "REBIND_NOT_ALLOWED",
+                    "message": "Rebind not allowed"
+                  },
+                  "error": "Forbidden"
+                }
+                """.trimIndent(),
+            ),
+        )
+    }
+
+    @Test
     fun `parseCode returns null for unknown conflict`() {
         assertNull(
             EnrollConflictCodeParser.parseCode(
