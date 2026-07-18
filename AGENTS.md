@@ -13,28 +13,36 @@
 
 ## Эмулятор для проверки релиза
 
-**Обязательная платформа для проверки:** приложение **Wiva Android** должно устанавливаться, запускаться и проходить релизный smoke на AVD с именем **`wiva`** (не заменять «на любой пиксель» без причины — вёрстка и UX завязаны на этот профиль).
+**Основная платформа проекта:** приложение **Wiva Android** должно
+устанавливаться, запускаться и проходить smoke на AVD
+**`wiva-android`**. Профиль повторяет экран исходного `evoq`, использует
+Android 11 как подключённая плата и всегда запускается в landscape.
 
 | Параметр | Значение |
 |----------|----------|
-| Имя AVD | **`wiva`** |
-| API | **25** (Android 7.1.1), образ **Google APIs**, **x86** |
-| Экран | **768×1024**, портрет, **mdpi (120 dpi)** — ориентир **15.6″**, как эталонный wiva / профиль `snack-156-768x1024` |
+| Имя AVD | **`wiva-android`** |
+| API | **30** (Android 11), образ **Google APIs**, **x86_64** |
+| Экран | physical **768×1024**, **mdpi (120 dpi)**; landscape даёт logical **1024×768** |
+| Ориентация | **landscape** (`hw.initialOrientation=landscape`) |
+| Типичный ADB serial | **`emulator-5556`** |
 | Каталог AVD (эталон Windows) | **`F:\AndroidAVD`** |
 
-Чтобы **`wiva`** был виден в Device Manager и в `emulator -list-avds`, задайте переменные окружения: **`ANDROID_AVD_HOME=F:\AndroidAVD`**, при необходимости **`ANDROID_SDK_ROOT=F:\AndroidSDK`** (или `ANDROID_HOME`).
+Чтобы профиль был виден в Device Manager и `emulator -list-avds`, задайте
+**`ANDROID_AVD_HOME=F:\AndroidAVD`** и
+**`ANDROID_SDK_ROOT=F:\AndroidSDK`** (или `ANDROID_HOME`).
 
-Совпадает с `minSdk = 25` в `app/build.gradle.kts`. В APK не заданы ограничивающие `abiFilters` — сборка содержит x86/x86_64, эмулятор ставится без `INSTALL_FAILED_NO_MATCHING_ABIS`.
+AVD `wiva` (API 25) остаётся дополнительной проверкой совместимости с
+`minSdk`, но не является основным профилем проекта.
 
 Для теста на этом эмуляторе используйте **release**, а не debug: так проверяются R8/ProGuard, Hilt и поведение, близкое к продакшену (как в `legacy Android kiosk`).
 
-1. Запустите AVD **wiva** (см. таблицу выше).
+1. Запустите AVD **wiva-android** (см. таблицу выше; runbook: `docs/AVD_WIVA_ANDROID.md`).
 2. Установка и запуск (Windows, SDK из `local.properties` → `sdk.dir`):
 
 ```bat
 set ANDROID_HOME=F:\AndroidSDK
 gradlew.bat installRelease
-%ANDROID_HOME%\platform-tools\adb.exe shell am start -n com.wiva.android/.ui.MainActivity
+%ANDROID_HOME%\platform-tools\adb.exe -s emulator-5556 shell am start -n com.wiva.android/.ui.MainActivity
 ```
 
 Если уже стоит сборка с другой подписью: `adb uninstall com.wiva.android`, затем снова `installRelease`.
