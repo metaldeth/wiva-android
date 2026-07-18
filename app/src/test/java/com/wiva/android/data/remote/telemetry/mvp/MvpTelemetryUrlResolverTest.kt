@@ -6,7 +6,7 @@ import org.junit.Test
 
 class MvpTelemetryUrlResolverTest {
     private val defaultApi = TelemetryConfig.DEFAULT_API_URL
-    private val expectedDerived = "wss://wiva.194.67.74.147.sslip.io/api/v1/machines/ws"
+    private val expectedDerived = "wss://194.67.74.147/api/v1/machines/ws"
     private val legacyWs = TelemetryConfig.DEFAULT_WS_URL
 
     @Test

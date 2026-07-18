@@ -13,7 +13,7 @@ data class TelemetryConfig(
     val keycloakRealm: String = DEFAULT_KEYCLOAK_REALM,
 ) {
     companion object {
-        const val DEFAULT_API_URL = "https://wiva.194.67.74.147.sslip.io"
+        const val DEFAULT_API_URL = "https://194.67.74.147"
         const val DEFAULT_WS_URL = "ws://185.46.8.39:8315/ws"
         const val DEFAULT_KEYCLOAK_URL = "https://kk.ishaker.ru:4437"
         const val DEFAULT_KEYCLOAK_REALM = "machine-realm"

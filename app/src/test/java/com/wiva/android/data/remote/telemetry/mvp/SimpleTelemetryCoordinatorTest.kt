@@ -207,7 +207,7 @@ class SimpleTelemetryCoordinatorTest {
         advanceUntilIdle()
         // then
         assertEquals(
-            "wss://wiva.194.67.74.147.sslip.io/api/v1/machines/ws",
+            "wss://194.67.74.147/api/v1/machines/ws",
             connectedUrl,
         )
     }
