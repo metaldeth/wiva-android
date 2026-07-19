@@ -1,7 +1,9 @@
 package com.wiva.android.services.inventory
 
-import com.wiva.android.domain.repository.MachineInventoryRepository
-import com.wiva.android.services.telemetry.WivaTelemetryService
+import com.wiva.android.data.remote.telemetry.mvp.TelemetryCellsSyncCoordinator
+import com.wiva.android.data.remote.telemetry.mvp.cells.CellVolumeUpdateWire
+import com.wiva.android.domain.customer.TelemetryCellsSnapshotAdapter
+import com.wiva.android.domain.repository.TelemetryCellsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 import timber.log.Timber
@@ -10,15 +12,19 @@ import timber.log.Timber
 class InventoryService
 @Inject
 constructor(
-    private val inventoryRepository: MachineInventoryRepository,
-    private val telemetryService: WivaTelemetryService,
+    private val cellsRepository: TelemetryCellsRepository,
+    private val cellsSyncCoordinator: TelemetryCellsSyncCoordinator,
 ) {
     suspend fun applyWriteOff(
         containerNumber: Int,
         volumeMl: Int,
         concentrationRatio: Double,
     ) {
-        val container = inventoryRepository.findContainerByNumber(containerNumber) ?: return
+        val snapshot = cellsRepository.getSnapshot() ?: return
+        val container =
+            TelemetryCellsSnapshotAdapter.toDrinkContainers(snapshot)
+                .find { it.containerNumber == containerNumber }
+                ?: return
         val dosage = container.product.dosage
         if (dosage.drinkVolume <= 0) return
 
@@ -31,11 +37,12 @@ constructor(
                 concentrationRatio = concentrationRatio,
             )
 
-        inventoryRepository.deductContainerVolume(containerNumber, productWriteOff)
-
-        if (!telemetryService.sendCellVolumeImportFromConfig()) {
-            Timber.tag(TAG).w("cellVolumeImportTopic не отправлен (offline или нет данных)")
-        }
+        val cell = snapshot.cells.find { it.cellNumber == containerNumber } ?: return
+        val nextVolume = (cell.volume - productWriteOff).coerceAtLeast(0.0).toInt()
+        cellsSyncCoordinator.onLocalVolumeChange(
+            listOf(CellVolumeUpdateWire(uuid = cell.uuid, volume = nextVolume)),
+        )
+        Timber.tag(TAG).d("write-off cell=%d volume=%d -> %d", containerNumber, cell.volume, nextVolume)
     }
 
     companion object {

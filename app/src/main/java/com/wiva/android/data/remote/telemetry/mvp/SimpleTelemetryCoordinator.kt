@@ -14,9 +14,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -24,20 +22,36 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 
-/**
- * Координатор simple-telemetry MVP: REG register + JWT WS + legacy enroll fallback.
- */
+/** Координатор Simple Telemetry MVP: REG register + JWT WS + enroll fallback. */
 @Singleton
 class SimpleTelemetryCoordinator
 @Inject
 constructor(
     private val apiClient: MvpTelemetryApiClient,
     private val wsManager: MvpTelemetryWebSocketManager,
+    private val cellsSyncCoordinator: TelemetryCellsSyncCoordinator,
     private val configRepository: ConfigRepository,
     private val machineSecretStore: MachineSecretStore,
     private val jwtCache: MachineJwtCache,
     @AppIoScope private val appScope: CoroutineScope,
 ) {
+    init {
+        wsManager.cellsSyncHandler =
+            object : MvpTelemetryCellsSyncHandler {
+                override suspend fun onWebSocketHello() {
+                    cellsSyncCoordinator.onWebSocketHello()
+                }
+
+                override suspend fun onCellsSnapshot(payloadJson: String) {
+                    cellsSyncCoordinator.onCellsSnapshot(payloadJson)
+                }
+
+                override suspend fun onSchemaAck(payload: kotlinx.serialization.json.JsonObject) {
+                    cellsSyncCoordinator.onSchemaAck(payload)
+                }
+            }
+    }
+
     private val json =
         Json {
             ignoreUnknownKeys = true
@@ -58,43 +72,26 @@ constructor(
         )
     }
 
-    private val _mvpProtocolEnabled = MutableStateFlow(false)
-    val mvpProtocolEnabled: StateFlow<Boolean> = _mvpProtocolEnabled.asStateFlow()
-
     suspend fun loadTelemetryConfig(): TelemetryConfig {
-        val config = readTelemetryConfigFromStore()
-        updateMvpProtocolCache(config.useMvpProtocol)
-        return config
+        val raw =
+            configRepository.getJson(JsonStoreKeys.TELEMETRY_CONFIG)
+                ?: return TelemetryConfig.normalize(TelemetryConfig())
+        return runCatching { json.decodeFromString<TelemetryConfig>(raw) }
+            .getOrDefault(TelemetryConfig())
+            .let { TelemetryConfig.normalize(it) }
     }
 
     suspend fun saveTelemetryConfig(config: TelemetryConfig) {
-        val migrated = TelemetryConfig.migrateLegacy(config)
+        val normalized = TelemetryConfig.normalize(config)
         configRepository.setJson(
-            com.wiva.android.data.local.db.JsonStoreKeys.TELEMETRY_CONFIG,
-            json.encodeToString(TelemetryConfig.serializer(), migrated),
+            JsonStoreKeys.TELEMETRY_CONFIG,
+            json.encodeToString(TelemetryConfig.serializer(), normalized),
         )
-        updateMvpProtocolCache(migrated.useMvpProtocol)
     }
-
-    private suspend fun readTelemetryConfigFromStore(): TelemetryConfig {
-        val raw = configRepository.getJson(com.wiva.android.data.local.db.JsonStoreKeys.TELEMETRY_CONFIG)
-            ?: return TelemetryConfig.migrateLegacy(TelemetryConfig())
-        return runCatching { json.decodeFromString<TelemetryConfig>(raw) }
-            .getOrDefault(TelemetryConfig())
-            .let { TelemetryConfig.migrateLegacy(it) }
-    }
-
-    private fun updateMvpProtocolCache(enabled: Boolean) {
-        cachedUseMvpProtocol = enabled
-        _mvpProtocolEnabled.value = enabled
-    }
-
-    @Volatile
-    private var cachedUseMvpProtocol: Boolean = false
 
     suspend fun loadMachineRegistration(): MachineRegistration {
         val raw =
-            configRepository.getJson(com.wiva.android.data.local.db.JsonStoreKeys.MACHINE_REGISTRATION)
+            configRepository.getJson(JsonStoreKeys.MACHINE_REGISTRATION)
                 ?: return MachineRegistration.migrateLegacy(MachineRegistration())
         return runCatching { json.decodeFromString<MachineRegistration>(raw) }
             .getOrDefault(MachineRegistration())
@@ -108,14 +105,14 @@ constructor(
                 machineKey = "",
             )
         configRepository.setJson(
-            com.wiva.android.data.local.db.JsonStoreKeys.MACHINE_REGISTRATION,
+            JsonStoreKeys.MACHINE_REGISTRATION,
             json.encodeToString(MachineRegistration.serializer(), sanitized),
         )
     }
 
     private suspend fun persistRegistrationMetadata(reg: MachineRegistration) {
         configRepository.setJson(
-            com.wiva.android.data.local.db.JsonStoreKeys.MACHINE_REGISTRATION,
+            JsonStoreKeys.MACHINE_REGISTRATION,
             json.encodeToString(MachineRegistration.serializer(), reg),
         )
     }
@@ -142,7 +139,7 @@ constructor(
         }
         if (updated != reg) {
             configRepository.setJson(
-                com.wiva.android.data.local.db.JsonStoreKeys.MACHINE_REGISTRATION,
+                JsonStoreKeys.MACHINE_REGISTRATION,
                 json.encodeToString(MachineRegistration.serializer(), updated),
             )
         }
@@ -223,10 +220,6 @@ constructor(
             }
     }
 
-    /**
-     * Поле serial в UI отличается от сохранённого — отключаем WS, сбрасываем enroll и секрет старого serial.
-     * @return true, если состояние регистрации было изменено.
-     */
     suspend fun applyUiSerialChange(uiSerial: String): Boolean {
         val reg = loadMachineRegistration()
         val normUi = SerialNumberUtils.normalize(uiSerial)
@@ -235,18 +228,17 @@ constructor(
             return false
         }
         disconnectInternal(persistPause = false)
-        jwtCache.invalidate()
         if (normPersisted.isNotBlank() && machineSecretStore.hasSecret(normPersisted)) {
             machineSecretStore.clearSecret(normPersisted)
         }
         val serialInStore = normUi.ifBlank { normPersisted }
-        val reset =
+        saveMachineRegistration(
             MachineRegistration.resetAfterSerialChange(
                 reg = reg,
                 serialInStore = serialInStore,
                 newInstallationId = UUID.randomUUID().toString(),
-            )
-        persistRegistrationMetadata(reset)
+            ),
+        )
         Timber.i(
             "SimpleTelemetry: serial field changed ($normPersisted → $normUi), enrollment reset",
         )
@@ -258,7 +250,7 @@ constructor(
             return Result.failure(IllegalArgumentException(msg))
         }
         val normUi = SerialNumberUtils.normalize(uiSerial)
-        val reg = ensureIdentity(loadMachineRegistration())
+        val reg = loadMachineRegistration()
         val normPersisted = SerialNumberUtils.normalize(reg.serialNumber)
         if (normUi != normPersisted) {
             return Result.failure(
@@ -297,7 +289,6 @@ constructor(
         return legacy.isNotBlank()
     }
 
-    /** Автоподключение и connect после успешной REG — только по сохранённому serial. */
     fun connectAuto() {
         appScope.launch {
             if (isUserPaused()) {
@@ -313,7 +304,6 @@ constructor(
         connectAuto()
     }
 
-    /** Legacy enroll с X-Enrollment-Key — только для обратной совместимости. */
     suspend fun reserveFreeSerial(): Result<String> {
         val config = loadTelemetryConfig()
         val reg = ensureIdentity(loadMachineRegistration())
@@ -322,7 +312,7 @@ constructor(
             .map { response ->
                 val normalized = SerialNumberUtils.normalize(response.serialNumber)
                 configRepository.setJson(
-                    com.wiva.android.data.local.db.JsonStoreKeys.MACHINE_REGISTRATION,
+                    JsonStoreKeys.MACHINE_REGISTRATION,
                     json.encodeToString(
                         MachineRegistration.serializer(),
                         reg.copy(
@@ -336,7 +326,6 @@ constructor(
             }
     }
 
-    /** Legacy enroll с X-Enrollment-Key — только для обратной совместимости. */
     suspend fun enrollMachine(serialNumber: String, rebind: Boolean): Result<Unit> {
         val normalized = SerialNumberUtils.normalize(serialNumber)
         SerialNumberUtils.validationMessage(normalized)?.let { msg ->
@@ -387,10 +376,10 @@ constructor(
                         reservationExpiresAt = "",
                     )
                 configRepository.setJson(
-                    com.wiva.android.data.local.db.JsonStoreKeys.MACHINE_REGISTRATION,
+                    JsonStoreKeys.MACHINE_REGISTRATION,
                     json.encodeToString(MachineRegistration.serializer(), reg),
                 )
-                Timber.i("SimpleTelemetry: legacy enrolled serial=${reg.serialNumber}")
+                Timber.i("SimpleTelemetry: enrolled serial=${reg.serialNumber}")
             }
     }
 
@@ -400,7 +389,6 @@ constructor(
         }
     }
 
-    /** Отключить WS без флага «пауза пользователя» (смена serial в поле). */
     fun disconnectWithoutPause() {
         appScope.launch {
             disconnectInternal(persistPause = false)
@@ -455,6 +443,7 @@ constructor(
                 configuredWsUrl = config.wsUrl,
             )
         Timber.i("SimpleTelemetry: WS ($reason) url=$wsUrl")
+        cellsSyncCoordinator.warmUp()
         wsManager.connect(
             wsUrl = wsUrl,
             tokenProvider = { resolveWsBearerToken(config, reg) },
@@ -502,8 +491,6 @@ constructor(
         Timber.w("SimpleTelemetry: no auth material for WS")
         return null
     }
-
-    suspend fun isMvpProtocolEnabled(): Boolean = cachedUseMvpProtocol
 
     internal suspend fun obtainWsBearerTokenForTests(
         config: TelemetryConfig,

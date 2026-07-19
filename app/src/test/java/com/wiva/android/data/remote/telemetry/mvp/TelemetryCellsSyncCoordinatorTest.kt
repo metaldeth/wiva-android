@@ -1,0 +1,386 @@
+package com.wiva.android.data.remote.telemetry.mvp
+
+import com.wiva.android.data.remote.telemetry.mvp.cells.CellVolumeUpdateWire
+import com.wiva.android.data.remote.telemetry.mvp.cells.TelemetryCellsMessageCodec
+import com.wiva.android.data.repository.ConfigRepository
+import com.wiva.android.data.repository.TelemetryCellsRepositoryImpl
+import com.wiva.android.domain.model.TelemetryCell
+import com.wiva.android.domain.model.TelemetryCellsSnapshot
+import com.wiva.android.domain.model.TelemetryProduct
+import com.wiva.android.domain.model.TelemetryConfig
+import com.wiva.android.domain.telemetry.CellUuidAllocator
+import com.wiva.android.domain.telemetry.DefaultPhysicalCellSchemaProvider
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
+import io.mockk.slot
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+
+class TelemetryCellsSyncCoordinatorTest {
+
+    private val json =
+        Json {
+            ignoreUnknownKeys = true
+            encodeDefaults = false
+            explicitNulls = false
+        }
+    private val codec = TelemetryCellsMessageCodec()
+    private val schemaProvider = DefaultPhysicalCellSchemaProvider()
+    private val uuidAllocator = CellUuidAllocator()
+    private lateinit var configRepository: FakeConfigRepository
+    private lateinit var repository: TelemetryCellsRepositoryImpl
+    private lateinit var wsManager: MvpTelemetryWebSocketManager
+    private lateinit var coordinator: TelemetryCellsSyncCoordinator
+
+    @Before
+    fun setUp() {
+        configRepository = FakeConfigRepository()
+        repository = TelemetryCellsRepositoryImpl(configRepository)
+        wsManager = mockk(relaxed = true)
+        coordinator =
+            TelemetryCellsSyncCoordinator(
+                repository = repository,
+                codec = codec,
+                schemaProvider = schemaProvider,
+                uuidAllocator = uuidAllocator,
+                wsManager = wsManager,
+            )
+        coEvery { wsManager.sendEnvelope(any(), any()) } returns Result.success(Unit)
+    }
+
+    @Test
+    fun `post-hello schema emits structural cells only in payload cells array`() = runTest {
+        // given
+        repository.replaceSnapshot(
+            TelemetryCellsSnapshot(
+                schemaHash = "saved-hash",
+                contentRevision = 10,
+                cells =
+                    listOf(
+                        sampleCell(
+                            uuid = "uuid-1",
+                            cellNumber = 1,
+                            productUuid = "prod-cherry",
+                            productName = "Вишня",
+                            tasteMediaKey = "cherry",
+                        ),
+                    ),
+            ),
+        )
+        val payloadSlot = slot<kotlinx.serialization.json.JsonObject>()
+        coEvery { wsManager.sendEnvelope("cells.schema.report", capture(payloadSlot)) } returns Result.success(Unit)
+        coEvery { wsManager.sendEnvelope("cells.content.report", any()) } returns Result.success(Unit)
+
+        // when
+        coordinator.onWebSocketHello()
+
+        // then
+        coVerify { wsManager.sendEnvelope("cells.schema.report", any()) }
+        val cells = payloadSlot.captured["cells"]!!.jsonArray
+        assertEquals(DefaultPhysicalCellSchemaProvider.DEFAULT_CELL_COUNT, cells.size)
+        val first = cells.first().jsonObject
+        assertTrue(first.containsKey("uuid"))
+        assertTrue(first.containsKey("cellNumber"))
+        assertTrue(first.containsKey("maxVolume"))
+        assertFalse(first.containsKey("productUuid"))
+        assertFalse(first.containsKey("productName"))
+        assertFalse(first.containsKey("tasteMediaKey"))
+        assertFalse(first.containsKey("volume"))
+    }
+
+    @Test
+    fun `local volume change produces volume report with uuid and volume only in updates`() = runTest {
+        // given
+        repository.replaceSnapshot(
+            TelemetryCellsSnapshot(
+                cells =
+                    listOf(
+                        sampleCell(uuid = "u1", cellNumber = 1, volume = 500),
+                        sampleCell(uuid = "u2", cellNumber = 2, volume = 100),
+                    ),
+            ),
+        )
+        val typeSlot = slot<String>()
+        val payloadSlot = slot<kotlinx.serialization.json.JsonObject>()
+        coEvery { wsManager.sendEnvelope(capture(typeSlot), capture(payloadSlot)) } returns Result.success(Unit)
+
+        // when
+        coordinator.onLocalVolumeChange(
+            listOf(
+                CellVolumeUpdateWire(uuid = "u1", volume = 900),
+            ),
+        )
+
+        // then
+        assertEquals("cells.volume.report", typeSlot.captured)
+        val update = payloadSlot.captured["updates"]!!.jsonArray.single().jsonObject
+        assertEquals("u1", update["uuid"]!!.jsonPrimitive.content)
+        assertEquals("900", update["volume"]!!.jsonPrimitive.content)
+        assertFalse(update.containsKey("productUuid"))
+        assertFalse(update.containsKey("productName"))
+        val loaded = repository.getSnapshot()!!
+        assertEquals(900, loaded.cells.first { it.uuid == "u1" }.volume)
+    }
+
+    @Test
+    fun `inventory edit produces content report without denormalized fields`() = runTest {
+        // given
+        repository.replaceSnapshot(
+            TelemetryCellsSnapshot(
+                cells = listOf(sampleCell(uuid = "u1", cellNumber = 1)),
+            ),
+        )
+        val typeSlot = slot<String>()
+        val payloadSlot = slot<kotlinx.serialization.json.JsonObject>()
+        coEvery { wsManager.sendEnvelope(capture(typeSlot), capture(payloadSlot)) } returns Result.success(Unit)
+        val edited =
+            sampleCell(
+                uuid = "u1",
+                cellNumber = 1,
+                productUuid = "prod-cherry",
+                productName = "Вишня",
+                tasteMediaKey = "cherry",
+                volume = 1200,
+                dosage1Price = 9900,
+            )
+
+        // when
+        coordinator.onLocalContentChange(listOf(edited))
+
+        // then
+        assertEquals("cells.content.report", typeSlot.captured)
+        val cellJson = payloadSlot.captured["cells"]!!.jsonArray.single().jsonObject
+        assertEquals("prod-cherry", cellJson["productUuid"]!!.jsonPrimitive.content)
+        assertFalse(cellJson.containsKey("productName"))
+        assertFalse(cellJson.containsKey("tasteMediaKey"))
+    }
+
+    @Test
+    fun `snapshot downlink replaces entire store including products`() = runTest {
+        // given
+        repository.replaceSnapshot(
+            TelemetryCellsSnapshot(
+                schemaHash = "old-hash",
+                contentRevision = 1,
+                products = listOf(TelemetryProduct("p-old", "Old", "cherry")),
+                cells = listOf(sampleCell(uuid = "old-uuid", cellNumber = 1)),
+            ),
+        )
+        val payloadJson =
+            """
+            {
+              "schemaHash": "new-hash",
+              "contentRevision": 99,
+              "products": [
+                { "uuid": "p-new", "name": "New", "tasteMediaKey": "lemon" }
+              ],
+              "cells": [
+                {
+                  "uuid": "new-uuid",
+                  "cellNumber": 2,
+                  "productUuid": "p-new",
+                  "productName": "New",
+                  "tasteMediaKey": "lemon",
+                  "blockVolume": 0,
+                  "sosVolume": 0,
+                  "volume": 500,
+                  "maxVolume": 5000
+                }
+              ]
+            }
+            """.trimIndent()
+
+        // when
+        coordinator.onCellsSnapshot(payloadJson)
+
+        // then
+        val loaded = repository.getSnapshot()!!
+        assertEquals("new-hash", loaded.schemaHash)
+        assertEquals(99, loaded.contentRevision)
+        assertEquals(listOf("p-new"), loaded.products.map { it.uuid })
+        assertEquals(listOf("new-uuid"), loaded.cells.map { it.uuid })
+    }
+
+    @Test
+    fun `second schema report includes clientSchemaHash and clientContentRevision from saved snapshot`() = runTest {
+        // given
+        repository.replaceSnapshot(
+            TelemetryCellsSnapshot(
+                schemaHash = "server-hash-v2",
+                contentRevision = 41,
+                cells = emptyList(),
+            ),
+        )
+        val payloadSlot = slot<kotlinx.serialization.json.JsonObject>()
+        coEvery { wsManager.sendEnvelope(any(), capture(payloadSlot)) } returns Result.success(Unit)
+
+        // when — first reconnect
+        coordinator.onWebSocketHello()
+        // when — second reconnect
+        coordinator.onWebSocketHello()
+
+        // then
+        coVerify(exactly = 2) { wsManager.sendEnvelope("cells.schema.report", any()) }
+        assertEquals("server-hash-v2", payloadSlot.captured["clientSchemaHash"]!!.jsonPrimitive.content)
+        assertEquals("41", payloadSlot.captured["clientContentRevision"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `hello handler invokes cells sync when coordinator wired`() = runTest {
+        // given — MVP-only path: cells sync always wired via SimpleTelemetryCoordinator
+        val cellsSync = mockk<TelemetryCellsSyncCoordinator>(relaxed = true)
+        val ws =
+            MvpTelemetryWebSocketManager(
+                appScope = this,
+                networkTrafficLogger = mockk(relaxed = true),
+            )
+        val telemetryCoordinator =
+            SimpleTelemetryCoordinator(
+                apiClient = mockk(relaxed = true),
+                wsManager = ws,
+                cellsSyncCoordinator = cellsSync,
+                configRepository = FakeConfigRepository(),
+                machineSecretStore = mockk(relaxed = true),
+                jwtCache = mockk(relaxed = true),
+                appScope = this,
+            )
+        telemetryCoordinator.saveTelemetryConfig(TelemetryConfig())
+
+        // when — simulate WS hello callback
+        ws.cellsSyncHandler?.onWebSocketHello()
+
+        // then
+        coVerify(exactly = 1) { cellsSync.onWebSocketHello() }
+    }
+
+    @Test
+    fun `snapshot during local edit fully replaces pending local state`() = runTest {
+        // given — local pending edit (not yet acked by server)
+        repository.replaceSnapshot(
+            TelemetryCellsSnapshot(
+                schemaHash = "local-hash",
+                contentRevision = 5,
+                cells =
+                    listOf(
+                        sampleCell(
+                            uuid = "u1",
+                            cellNumber = 1,
+                            volume = 777,
+                            productUuid = "local-prod",
+                            productName = "Local",
+                            tasteMediaKey = "cherry",
+                        ),
+                    ),
+            ),
+        )
+        val serverPayload =
+            """
+            {
+              "schemaHash": "server-hash",
+              "contentRevision": 6,
+              "products": [
+                { "uuid": "srv-prod", "name": "Server", "tasteMediaKey": "lime" }
+              ],
+              "cells": [
+                {
+                  "uuid": "u1",
+                  "cellNumber": 1,
+                  "productUuid": "srv-prod",
+                  "productName": "Server",
+                  "tasteMediaKey": "lime",
+                  "blockVolume": 0,
+                  "sosVolume": 0,
+                  "volume": 100,
+                  "maxVolume": 5000
+                }
+              ]
+            }
+            """.trimIndent()
+
+        // when
+        coordinator.onCellsSnapshot(serverPayload)
+
+        // then — MVP full replace: pending local volume/product overwritten
+        val loaded = repository.getSnapshot()!!
+        assertEquals("server-hash", loaded.schemaHash)
+        assertEquals(6, loaded.contentRevision)
+        assertEquals(100, loaded.cells.single().volume)
+        assertEquals("srv-prod", loaded.cells.single().productUuid)
+        assertNotEquals("local-prod", loaded.cells.single().productUuid)
+        assertNotEquals(777, loaded.cells.single().volume)
+    }
+
+    @Test
+    fun `schema ack persists server schemaHash for next reconnect`() = runTest {
+        // given
+        repository.replaceSnapshot(
+            TelemetryCellsSnapshot(
+                contentRevision = 3,
+                cells = listOf(sampleCell(uuid = "u1", cellNumber = 1)),
+            ),
+        )
+
+        // when
+        coordinator.onSchemaAck(
+            buildJsonObject {
+                put("ok", true)
+                put("schemaHash", "ack-hash-from-server")
+            },
+        )
+
+        // then
+        assertEquals("ack-hash-from-server", repository.getSnapshot()?.schemaHash)
+    }
+
+    private fun sampleCell(
+        uuid: String,
+        cellNumber: Int,
+        volume: Int = 0,
+        productUuid: String? = null,
+        productName: String? = null,
+        tasteMediaKey: String? = null,
+        dosage1Price: Int? = null,
+    ): TelemetryCell =
+        TelemetryCell(
+            uuid = uuid,
+            cellNumber = cellNumber,
+            productUuid = productUuid,
+            productName = productName,
+            tasteMediaKey = tasteMediaKey,
+            volume = volume,
+            maxVolume = DefaultPhysicalCellSchemaProvider.DEFAULT_MAX_VOLUME_ML,
+            dosage1Price = dosage1Price,
+        )
+
+    private class FakeConfigRepository : ConfigRepository {
+        private val store = mutableMapOf<String, String>()
+
+        override suspend fun get(key: String): String? = store[key]
+
+        override suspend fun set(key: String, value: String) {
+            store[key] = value
+        }
+
+        override suspend fun delete(key: String) {
+            store.remove(key)
+        }
+
+        override suspend fun getJson(key: String): String? = store[key]
+
+        override suspend fun setJson(key: String, json: String) {
+            store[key] = json
+        }
+    }
+}

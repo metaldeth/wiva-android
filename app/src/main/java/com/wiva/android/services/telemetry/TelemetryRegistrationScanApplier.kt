@@ -41,4 +41,8 @@ internal object TelemetryRegistrationScanApplier {
             urlWarning = urlWarning,
         )
     }
+
+    /** Full JSON QR with serial + REG key → auto-register in ServiceViewModel (rebind still manual). */
+    fun shouldAutoRegister(result: Result): Boolean =
+        result.regKey.isNotBlank() && !result.serial.isNullOrBlank()
 }

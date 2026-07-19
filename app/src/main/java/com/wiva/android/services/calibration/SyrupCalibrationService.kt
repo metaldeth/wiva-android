@@ -1,9 +1,9 @@
 package com.wiva.android.services.calibration
 
+import com.wiva.android.data.remote.telemetry.mvp.TelemetryCellsSyncCoordinator
+import com.wiva.android.data.remote.telemetry.mvp.cells.CellVolumeUpdateWire
 import com.wiva.android.hardware.controller.ControllerGateway
 import com.wiva.android.hardware.controller.RequestCommand
-import com.wiva.android.domain.repository.MachineInventoryRepository
-import com.wiva.android.services.telemetry.WivaTelemetryService
 import javax.inject.Inject
 import javax.inject.Singleton
 import timber.log.Timber
@@ -13,19 +13,14 @@ class SyrupCalibrationService
 @Inject
 constructor(
     private val controllerGateway: ControllerGateway,
-    private val machineInventoryRepository: MachineInventoryRepository,
-    private val telemetryService: WivaTelemetryService,
+    private val calibrationInventory: SyrupCalibrationInventory,
+    private val cellsSyncCoordinator: TelemetryCellsSyncCoordinator,
 ) {
- /**
- * Тестовый налив концентрата: ServiceCommand 0x52, тело [0x09,0,port,tenths,0].
- * В мок-режиме контроллер только логирует TX и отвечает ACK (успех).
- * После отправки команды списываем целевой объём из остатка этой ячейки.
- */
     suspend fun pourTestSample(
         containerNumber: Int,
         targetProductMl: Double,
     ): Result<Unit> {
-        val containers = machineInventoryRepository.listContainersForCalibration()
+        val containers = calibrationInventory.listContainersForCalibration()
         val info = containers.find { it.containerNumber == containerNumber }
         if (info == null) {
             return Result.failure(IllegalArgumentException("Контейнер $containerNumber не найден"))
@@ -45,14 +40,7 @@ constructor(
                 conversionFactor = info.conversionFactor,
             )
         controllerGateway.sendCommand(RequestCommand.ServiceCommand, body)
-        machineInventoryRepository.deductContainerVolume(containerNumber = containerNumber, amount = target)
-        if (!telemetryService.sendCellVolumeImportFromConfig()) {
-            Timber.w(
-                "SyrupCalibration: списание %.1f мл сохранено локально, но cellVolumeImportTopic не отправлен (offline), container=%d",
-                target,
-                containerNumber,
-            )
-        }
+        deductVolume(containerNumber, target)
         Timber.i(
             "SyrupCalibration: тестовый налив container=%d target=%.1f мл body=%s",
             containerNumber,
@@ -62,9 +50,6 @@ constructor(
         return Result.success(Unit)
     }
 
- /**
- * Сохранение результата калибровки: newCF, локальный конфиг, cellVolumeImportTopic + cellStoreImportTopic.
- */
     suspend fun submitCalibrationResult(
         containerNumber: Int,
         actualVolumeMl: Double,
@@ -73,7 +58,7 @@ constructor(
         if (!actualVolumeMl.isFinite() || actualVolumeMl <= 0) {
             return Result.failure(IllegalArgumentException("Фактический объём должен быть > 0"))
         }
-        val containers = machineInventoryRepository.listContainersForCalibration()
+        val containers = calibrationInventory.listContainersForCalibration()
         val info = containers.find { it.containerNumber == containerNumber }
         if (info == null) {
             return Result.failure(IllegalArgumentException("Контейнер $containerNumber не найден"))
@@ -92,22 +77,19 @@ constructor(
                 actualVolumeMl = actualVolumeMl,
                 targetProductMl = target,
             )
-        machineInventoryRepository
+        calibrationInventory
             .updateContainerConversionFactor(containerNumber, newCf)
             .onFailure { return Result.failure(it) }
-        val volumeSent = telemetryService.sendCellVolumeImportFromConfig()
-        val storeSent = telemetryService.sendCellStoreImportFromConfig()
-        if (!volumeSent || !storeSent) {
-            Timber.w(
-                "Калибровка сохранена, но телеметрия не отправлена (WebSocket отключён), container=%d",
-                containerNumber,
-            )
-        } else {
-            Timber.i(
-                "Калибровка: cellVolumeImportTopic и cellStoreImportTopic отправлены, container=%d",
-                containerNumber,
-            )
-        }
+        Timber.i("SyrupCalibration: сохранён conversionFactor=%.4f container=%d", newCf, containerNumber)
         return Result.success(newCf)
+    }
+
+    private suspend fun deductVolume(containerNumber: Int, amount: Double) {
+        val uuid = calibrationInventory.findCellUuid(containerNumber) ?: return
+        val current = calibrationInventory.currentVolumeMl(containerNumber) ?: return
+        val next = (current - amount).coerceAtLeast(0.0).toInt()
+        cellsSyncCoordinator.onLocalVolumeChange(
+            listOf(CellVolumeUpdateWire(uuid = uuid, volume = next)),
+        )
     }
 }

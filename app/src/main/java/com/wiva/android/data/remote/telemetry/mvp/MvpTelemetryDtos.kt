@@ -104,7 +104,7 @@ data class MvpWsEnvelopeDto(
 data class MvpHelloPayloadDto(
     val serialNumber: String,
     val protocolVersion: Int = 1,
-    val heartbeatIntervalSeconds: Int = 30,
+    val heartbeatIntervalSeconds: Int = 10,
 )
 
 @Serializable

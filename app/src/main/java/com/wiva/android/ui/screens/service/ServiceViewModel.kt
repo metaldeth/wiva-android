@@ -26,6 +26,8 @@ import com.wiva.android.data.network.NetworkTrafficEntry
 import com.wiva.android.data.network.NetworkTrafficLogger
 import com.wiva.android.data.remote.telemetry.ConnectionState
 import com.wiva.android.data.remote.telemetry.mvp.MvpTelemetryUrlResolver
+import com.wiva.android.data.remote.telemetry.mvp.TelemetryCellsSyncCoordinator
+import com.wiva.android.data.remote.telemetry.mvp.cells.CellVolumeUpdateWire
 import com.wiva.android.data.remote.telemetry.mvp.SerialAlreadyBoundException
 import com.wiva.android.data.remote.telemetry.mvp.SerialNumberUtils
 import com.wiva.android.domain.model.TelemetryConfig
@@ -40,23 +42,29 @@ import com.wiva.android.services.payment.TerminalProductType
 import com.wiva.android.services.calibration.WaterCalibrationService
 import com.wiva.android.services.calibration.WaterPourResult
 import com.wiva.android.services.calibration.WaterCalibrationWriteResult
+import com.wiva.android.services.calibration.SyrupCalibrationInventory
 import com.wiva.android.services.calibration.SyrupCalibrationService
 import com.wiva.android.services.telemetry.TelemetryRegistrationScannerCoordinator
 import com.wiva.android.services.telemetry.TelemetryRegistrationScanApplier
 import com.wiva.android.services.telemetry.TelemetryRegistrationScanUiEvent
+import com.wiva.android.services.telemetry.TelemetryRegistrationUiPolicy
 import com.wiva.android.services.telemetry.WivaTelemetryService
 import com.wiva.android.domain.model.customer.PrimaryButtonPulseStyle
 import com.wiva.android.domain.model.WaterCalibrationData
 import com.wiva.android.domain.model.AppUpdate
 import com.wiva.android.domain.model.CellVolumeUpdate
 import com.wiva.android.domain.model.ContainerCalibrationInfo
-import com.wiva.android.domain.model.MachineInventoryTableRow
+import com.wiva.android.domain.customer.TelemetryCellsSnapshotAdapter
+import com.wiva.android.domain.model.MvpInventoryContentUpdate
+import com.wiva.android.domain.model.MvpInventoryTableRow
+import com.wiva.android.domain.model.TelemetryProduct
+import com.wiva.android.domain.model.mapMvpInventoryFromSnapshot
 import com.wiva.android.domain.model.MaxSettings
 import com.wiva.android.domain.model.NanoKassaSettings
 import com.wiva.android.domain.model.UpdateProgress
 import com.wiva.android.domain.model.customer.DrinkContainer
 import com.wiva.android.domain.repository.MaxRepository
-import com.wiva.android.domain.repository.MachineInventoryRepository
+import com.wiva.android.domain.repository.TelemetryCellsRepository
 import com.wiva.android.domain.repository.NanoKassaRepository
 import com.wiva.android.domain.repository.SBPRepository
 import com.wiva.android.ui.screens.customer.WivaCustomerUiTokens
@@ -71,6 +79,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.update
@@ -156,11 +166,7 @@ data class ServiceUiState(
  /** Модуль D — телеметрия */
     val telemetryApiUrl: String = "",
     val telemetryWsUrl: String = "",
-    val telemetryKeycloakUrl: String = "",
-    val telemetryRealm: String = "",
-    val telemetryPingPongEnabled: Boolean = false,
     val telemetryRegKey: String = "",
-    val telemetryUseMvpProtocol: Boolean = true,
     val telemetrySerialConflict: Boolean = false,
     val telemetryRebindConfirmVisible: Boolean = false,
     val telemetrySerial: String = "",
@@ -261,7 +267,9 @@ constructor(
     private val networkTrafficLogger: NetworkTrafficLogger,
     private val controllerTrafficLogger: WivaControllerTrafficLogger,
     private val controllerRawLogger: com.wiva.android.hardware.controller.WivaControllerRawLogger,
-    private val machineInventoryRepository: MachineInventoryRepository,
+    private val syrupCalibrationInventory: SyrupCalibrationInventory,
+    private val telemetryCellsRepository: TelemetryCellsRepository,
+    private val telemetryCellsSyncCoordinator: TelemetryCellsSyncCoordinator,
     private val syrupCalibrationService: SyrupCalibrationService,
     private val themeRepository: ThemeRepository,
     private val serialPortManager: SerialPortManager,
@@ -280,8 +288,11 @@ constructor(
     private val _telemetryConnectionUi = MutableStateFlow(TelemetryConnectionUiState())
     val telemetryConnectionUi: StateFlow<TelemetryConnectionUiState> = _telemetryConnectionUi.asStateFlow()
 
-    private val _telemetryInventoryRows = MutableStateFlow<List<MachineInventoryTableRow>>(emptyList())
-    val telemetryInventoryRows: StateFlow<List<MachineInventoryTableRow>> = _telemetryInventoryRows.asStateFlow()
+    private val _mvpInventoryRows = MutableStateFlow<List<MvpInventoryTableRow>>(emptyList())
+    val mvpInventoryRows: StateFlow<List<MvpInventoryTableRow>> = _mvpInventoryRows.asStateFlow()
+
+    private val _snapshotProducts = MutableStateFlow<List<TelemetryProduct>>(emptyList())
+    val snapshotProducts: StateFlow<List<TelemetryProduct>> = _snapshotProducts.asStateFlow()
 
     private val _dashboardCells = MutableStateFlow<List<ServiceDashboardCellUi>>(emptyList())
     val dashboardCells: StateFlow<List<ServiceDashboardCellUi>> = _dashboardCells.asStateFlow()
@@ -916,16 +927,21 @@ constructor(
 
     private fun observeInventoryTable() {
         viewModelScope.launch {
-            machineInventoryRepository.inventoryRevision.collect { _ ->
+            telemetryCellsRepository.snapshotFlow.collect { snapshot ->
                 runCatching {
-                    val rows = machineInventoryRepository.getTableRows()
-                    _telemetryInventoryRows.value = rows
-                    updateDashboardDerived(rows)
+                    applyMvpInventorySnapshot(snapshot)
+                    updateDashboardDerived(_mvpInventoryRows.value)
                     refreshSyrupCalibrationRows()
                     refreshPreparingStatsData()
                 }.onFailure { Timber.e(it, "observeInventoryTable") }
             }
         }
+    }
+
+    private suspend fun applyMvpInventorySnapshot(snapshot: com.wiva.android.domain.model.TelemetryCellsSnapshot?) {
+        val (rows, products) = mapMvpInventoryFromSnapshot(snapshot)
+        _mvpInventoryRows.value = rows
+        _snapshotProducts.value = products
     }
 
     fun refreshSyrupCalibrationUi() {
@@ -935,7 +951,7 @@ constructor(
     private fun refreshSyrupCalibrationRows() {
         viewModelScope.launch {
             runCatching {
-                val list = machineInventoryRepository.listContainersForCalibration()
+                val list = syrupCalibrationInventory.listContainersForCalibration()
                 _state.update { s ->
                     val stillValid =
                         s.syrupSelectedContainerNumber?.let { sel ->
@@ -1018,7 +1034,7 @@ constructor(
             _state.update { s ->
                 result.fold(
                     onSuccess = { newCf ->
-                        val updatedList = machineInventoryRepository.listContainersForCalibration()
+                        val updatedList = syrupCalibrationInventory.listContainersForCalibration()
                         s.copy(
                             syrupSaveBusy = false,
                             syrupNewConversionFactor = newCf,
@@ -1042,16 +1058,15 @@ constructor(
     fun refreshInventoryRows() {
         viewModelScope.launch {
             runCatching {
-                val rows = machineInventoryRepository.getTableRows()
-                _telemetryInventoryRows.value = rows
-                updateDashboardDerived(rows)
+                applyMvpInventorySnapshot(telemetryCellsRepository.getSnapshot())
+                updateDashboardDerived(_mvpInventoryRows.value)
             }.onFailure { Timber.e(it, "refreshInventoryRows") }
         }
     }
 
-    private suspend fun updateDashboardDerived(rows: List<MachineInventoryTableRow>) {
+    private suspend fun updateDashboardDerived(rows: List<MvpInventoryTableRow>) {
         _totalWaterUsageMl.value = waterCounter.getAccumulatedWaterUsageMl()
-        _dashboardCells.value = buildServiceDashboardCells(rows, machineInventoryRepository)
+        _dashboardCells.value = buildServiceDashboardCells(rows)
     }
 
  /** Обновить строки наполнения и блок дашборда (вода, ячейки). */
@@ -1066,11 +1081,56 @@ constructor(
     ) {
         viewModelScope.launch {
             runCatching {
-                machineInventoryRepository.applyCellVolumes(updates)
+                val snapshot =
+                    telemetryCellsRepository.getSnapshot()
+                        ?: error("Нет локального snapshot ячеек (ожидайте cells.snapshot по WS)")
+                val wires =
+                    updates.mapNotNull { update ->
+                        val cell =
+                            snapshot.cells.find { it.cellNumber == update.containerNumber }
+                                ?: return@mapNotNull null
+                        CellVolumeUpdateWire(uuid = cell.uuid, volume = update.volumeMl)
+                    }
+                if (wires.isEmpty()) error("Не найдены ячейки для сохранения объёмов")
+                telemetryCellsSyncCoordinator.onLocalVolumeChange(wires)
             }.fold(
-                onSuccess = { onDone(true, "Сохранено, cellVolumeImportTopic отправлен при подключении WS") },
+                onSuccess = { onDone(true, "Сохранено локально, cells.volume.report отправлен при подключении WS") },
                 onFailure = { e ->
                     Timber.e(e, "saveInventoryVolumes")
+                    onDone(false, e.message ?: "Ошибка сохранения")
+                },
+            )
+        }
+    }
+
+    fun saveMvpInventoryContent(
+        updates: List<MvpInventoryContentUpdate>,
+        onDone: (success: Boolean, message: String) -> Unit,
+    ) {
+        viewModelScope.launch {
+            runCatching {
+                val snapshot =
+                    telemetryCellsRepository.getSnapshot()
+                        ?: error("Нет локального snapshot ячеек")
+                val updatedCells =
+                    updates.map { update ->
+                        val cell =
+                            snapshot.cells.find { it.uuid == update.cellUuid }
+                                ?: error("Ячейка ${update.cellUuid} не найдена")
+                        val product = update.productUuid?.let { id -> snapshot.products.find { it.uuid == id } }
+                        cell.copy(
+                            productUuid = update.productUuid,
+                            productName = product?.name ?: cell.productName,
+                            tasteMediaKey = product?.tasteMediaKey ?: cell.tasteMediaKey,
+                            dosage1Price = update.dosage1PriceKopecks,
+                            dosage2Price = update.dosage2PriceKopecks,
+                        )
+                    }
+                telemetryCellsSyncCoordinator.onLocalContentChange(updatedCells)
+            }.fold(
+                onSuccess = { onDone(true, "Сохранено локально, cells.content.report отправлен при подключении WS") },
+                onFailure = { e ->
+                    Timber.e(e, "saveMvpInventoryContent")
                     onDone(false, e.message ?: "Ошибка сохранения")
                 },
             )
@@ -1116,17 +1176,7 @@ constructor(
                 _state.update {
                     it.copy(
                         telemetryApiUrl = t.apiUrl,
-                        telemetryWsUrl =
-                            if (t.useMvpProtocol) {
-                                MvpTelemetryUrlResolver.displayWsUrl(t.apiUrl, t.wsUrl)
-                            } else {
-                                t.wsUrl.ifBlank { TelemetryConfig.DEFAULT_WS_URL }
-                            },
-                        telemetryKeycloakUrl = t.keycloakUrl,
-                        telemetryRealm = t.keycloakRealm,
-                        telemetryUseMvpProtocol = t.useMvpProtocol,
-                        telemetryPingPongEnabled =
-                            configRepository.get(JsonStoreKeys.TELEMETRY_PING_PONG_ENABLED) == "true",
+                        telemetryWsUrl = MvpTelemetryUrlResolver.displayWsUrl(t.apiUrl, t.wsUrl),
                         telemetryRegKey = r.regKey,
                         telemetrySerial = r.serialNumber,
                         telemetryPersistedSerial = r.serialNumber,
@@ -1145,9 +1195,8 @@ constructor(
             telemetryService.connectionState.collect { s ->
                 val label =
                     when (s) {
-                        ConnectionState.Connecting -> if (_state.value.telemetryUseMvpProtocol) "MVP WS: подключение…" else "WS: подключение…"
-                        ConnectionState.Connected ->
-                            if (_state.value.telemetryUseMvpProtocol) "MVP WS: ONLINE" else "WS: подключено"
+                        ConnectionState.Connecting -> "MVP WS: подключение…"
+                        ConnectionState.Connected -> "MVP WS: ONLINE"
                         is ConnectionState.Disconnected ->
                             if (s.retryInMs > 0) {
                                 "WS: переподключение через ${s.retryInMs} ms"
@@ -1193,60 +1242,6 @@ constructor(
         _state.update { it.copy(telemetryWsUrl = v) }
     }
 
-    fun setTelemetryKeycloakUrl(v: String) {
-        _state.update { it.copy(telemetryKeycloakUrl = v) }
-    }
-
-    fun setTelemetryRealm(v: String) {
-        _state.update { it.copy(telemetryRealm = v) }
-    }
-
-    fun toggleTelemetryPingPong() {
-        viewModelScope.launch {
-            val targetEnabled = !_state.value.telemetryPingPongEnabled
-            val reconnectNeeded = telemetryService.connectionState.value is ConnectionState.Connected
-            _state.update { it.copy(telemetryBusy = true, telemetryBanner = null, telemetryBannerIsError = false) }
-            runCatching {
-                configRepository.set(
-                    JsonStoreKeys.TELEMETRY_PING_PONG_ENABLED,
-                    if (targetEnabled) "true" else "false",
-                )
-                if (reconnectNeeded) telemetryService.reconnect()
-            }.onSuccess {
-                _state.update {
-                    it.copy(
-                        telemetryPingPongEnabled = targetEnabled,
-                        telemetryBusy = false,
-                        telemetryBanner =
-                            if (reconnectNeeded) {
-                                if (targetEnabled) {
-                                    "Ping/pong включён, выполнен реконнект WS"
-                                } else {
-                                    "Ping/pong отключён, выполнен реконнект WS"
-                                }
-                            } else {
-                                if (targetEnabled) {
-                                    "Ping/pong включён. Применится при следующем подключении WS"
-                                } else {
-                                    "Ping/pong отключён. Применится при следующем подключении WS"
-                                }
-                            },
-                        telemetryBannerIsError = false,
-                    )
-                }
-            }.onFailure { e ->
-                Timber.e(e, "toggleTelemetryPingPong")
-                _state.update {
-                    it.copy(
-                        telemetryBusy = false,
-                        telemetryBanner = e.message ?: "Не удалось переключить ping/pong",
-                        telemetryBannerIsError = true,
-                    )
-                }
-            }
-        }
-    }
-
     fun onTelemetryConnectionTabVisible() {
         telemetryConnectionTabActive = true
     }
@@ -1280,7 +1275,12 @@ constructor(
                 telemetryBannerIsError = false,
             )
         }
+        if (TelemetryRegistrationScanApplier.shouldAutoRegister(result)) {
+            registerTelemetryMachine()
+        }
     }
+
+    fun isTelemetryFreeSerialUiVisible(): Boolean = TelemetryRegistrationUiPolicy.showReserveFreeSerialButton()
 
     fun setTelemetryRegKey(v: String) {
         _state.update { it.copy(telemetryRegKey = v, telemetryQrScannedBanner = null) }
@@ -1366,12 +1366,7 @@ constructor(
 
     fun registerTelemetryMachine(rebind: Boolean = false) {
         val current = _state.value
-        val validationMessage =
-            if (current.telemetryUseMvpProtocol) {
-                SerialNumberUtils.validationMessage(current.telemetrySerial)
-            } else {
-                null
-            }
+        val validationMessage = SerialNumberUtils.validationMessage(current.telemetrySerial)
         if (validationMessage != null) {
             _state.update {
                 it.copy(
@@ -1527,53 +1522,12 @@ constructor(
 
     private suspend fun saveTelemetryEndpointsInternal() {
         val s = _state.value
-        val wsUrl =
-            if (s.telemetryUseMvpProtocol) {
-                TelemetryConfig.sanitizeWsUrlForMvp(s.telemetryWsUrl.trim())
-            } else {
-                s.telemetryWsUrl.trim().ifBlank { TelemetryConfig.DEFAULT_WS_URL }
-            }
         telemetryService.saveTelemetryConfig(
             TelemetryConfig(
                 apiUrl = s.telemetryApiUrl.trim().ifBlank { TelemetryConfig().apiUrl },
-                wsUrl = wsUrl,
-                useMvpProtocol = s.telemetryUseMvpProtocol,
-                keycloakUrl = s.telemetryKeycloakUrl.trim().ifBlank { TelemetryConfig().keycloakUrl },
-                keycloakRealm = s.telemetryRealm.trim().ifBlank { TelemetryConfig().keycloakRealm },
+                wsUrl = TelemetryConfig.sanitizeWsUrl(s.telemetryWsUrl.trim()),
             ),
         )
-    }
-
-    fun sendTelemetryDemoSaleImport() {
-        viewModelScope.launch {
-            runTelemetryTestAction("saleImportTopic (демо)") {
-                telemetryService.sendDemoSaleImportForE2e().getOrThrow()
-            }
-        }
-    }
-
-    fun requestTelemetryFillingMatrix() {
-        viewModelScope.launch {
-            runTelemetryTestAction("cellStoreRequestExport (наполнение)") {
-                telemetryService.requestCellStoreMatrix().getOrThrow()
-            }
-        }
-    }
-
-    fun requestTelemetryBaseIngredients() {
-        viewModelScope.launch {
-            runTelemetryTestAction("baseIngredientRequestExportTopic (база)") {
-                telemetryService.requestBaseIngredients().getOrThrow()
-            }
-        }
-    }
-
-    fun requestTelemetryMachineInfo() {
-        viewModelScope.launch {
-            runTelemetryTestAction("machineInfo") {
-                telemetryService.requestMachineInfo().getOrThrow()
-            }
-        }
     }
 
     private suspend fun runTelemetryTestAction(
@@ -2051,7 +2005,9 @@ constructor(
                 )
             }
             runCatching {
-                val containers = machineInventoryRepository.listDrinkContainers()
+                val snapshot = telemetryCellsRepository.getSnapshot()
+                val containers =
+                    snapshot?.let { TelemetryCellsSnapshotAdapter.toDrinkContainers(it) }.orEmpty()
                 val flowRate = waterCalibrationService.loadCalibration().flowRateMlPerSec
                 val history = preparingTimeHistoryStore.loadAll()
                 val options = containers.map { it.toPreparingStatsOption() }

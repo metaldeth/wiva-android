@@ -21,11 +21,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.wiva.android.domain.model.CellVolumeStatus
 import com.wiva.android.domain.model.CellVolumeUpdate
-import com.wiva.android.domain.model.MachineInventoryTableRow
+import com.wiva.android.domain.model.MvpInventoryTableRow
 import com.wiva.android.ui.screens.service.ServiceViewModel
 import com.wiva.android.ui.screens.service.SettingsColumn
 import com.wiva.android.ui.screens.service.SettingsTextField
@@ -34,7 +36,7 @@ import com.wiva.android.ui.screens.service.SettingsTextField
 fun WivaInventoryVolumesTab(
     viewModel: ServiceViewModel,
 ) {
-    val rows by viewModel.telemetryInventoryRows.collectAsStateWithLifecycle()
+    val rows by viewModel.mvpInventoryRows.collectAsStateWithLifecycle()
     val serviceState by viewModel.state.collectAsStateWithLifecycle()
     var draftVolumes by remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
     var banner by remember { mutableStateOf<String?>(null) }
@@ -46,13 +48,13 @@ fun WivaInventoryVolumesTab(
 
     LaunchedEffect(rows) {
         if (rows.isNotEmpty()) {
-            draftVolumes = rows.associate { it.cellNumber to (it.volumeMl?.toString() ?: "0") }
+            draftVolumes = rows.associate { it.cellNumber to it.volumeMl.toString() }
         }
     }
 
     SettingsColumn {
         Text(
-            "Текущие объёмы по контейнерам (мл). Сохранение записывает merge-конфиг и отправляет cellVolumeImportTopic в телеметрию.",
+            "Объёмы из telemetryCellsSnapshot. Сохранение → локальный snapshot и cells.volume.report.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -64,12 +66,12 @@ fun WivaInventoryVolumesTab(
             },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Обновить с диска")
+            Text("Обновить snapshot")
         }
         Spacer(Modifier.height(16.dp))
         if (rows.isEmpty()) {
             Text(
-                "Нет данных наполнения. Подключите телеметрию и получите базу/матрицу или импортируйте конфиг.",
+                "Нет snapshot ячеек. Подключите MVP WS и дождитесь cells.snapshot.",
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -81,10 +83,10 @@ fun WivaInventoryVolumesTab(
                         .heightIn(max = 640.dp)
                         .verticalScroll(rememberScrollState()),
             ) {
-                rows.sortedBy { it.cellNumber }.forEach { row ->
+                rows.forEach { row ->
                     val isSyrupCell =
                         serviceState.syrupContainers.any { it.containerNumber == row.cellNumber }
-                    VolumeRow(
+                    MvpVolumeRow(
                         row = row,
                         text = draftVolumes[row.cellNumber].orEmpty(),
                         syrupPrimeEnabled = isSyrupCell,
@@ -93,18 +95,15 @@ fun WivaInventoryVolumesTab(
                             draftVolumes = draftVolumes + (row.cellNumber to t)
                             banner = null
                         },
-                        onFillToMax =
-                            row.maxVolumeMl?.let { maxMl ->
-                                {
-                                    banner = null
-                                    viewModel.fillInventoryCellToMax(row.cellNumber, maxMl) { ok, msg ->
-                                        banner = msg
-                                        if (ok) {
-                                            viewModel.refreshInventoryRows()
-                                        }
-                                    }
+                        onFillToMax = {
+                            banner = null
+                            viewModel.fillInventoryCellToMax(row.cellNumber, row.maxVolume) { ok, msg ->
+                                banner = msg
+                                if (ok) {
+                                    viewModel.refreshInventoryRows()
                                 }
-                            },
+                            }
+                        },
                         onSyrupPrime =
                             if (isSyrupCell) {
                                 {
@@ -125,7 +124,7 @@ fun WivaInventoryVolumesTab(
             Spacer(Modifier.height(12.dp))
             Button(
                 onClick = {
-                    val updates = buildUpdates(rows, draftVolumes)
+                    val updates = buildMvpUpdates(rows, draftVolumes)
                     if (updates == null) {
                         banner = "Введите целые числа ≥ 0 для всех ячеек"
                     } else {
@@ -150,8 +149,49 @@ fun WivaInventoryVolumesTab(
 }
 
 @Composable
-private fun VolumeRow(
-    row: MachineInventoryTableRow,
+private fun MvpVolumeRow(
+    row: MvpInventoryTableRow,
+    text: String,
+    syrupPrimeEnabled: Boolean,
+    syrupPrimeBusy: Boolean,
+    onTextChange: (String) -> Unit,
+    onFillToMax: () -> Unit,
+    onSyrupPrime: (() -> Unit)?,
+) {
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "Ячейка ${row.cellNumber} · ${row.productName ?: "—"}",
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                volumeStatusLabel(row.volumeStatus),
+                color = volumeStatusColor(row.volumeStatus),
+                style = MaterialTheme.typography.labelMedium,
+            )
+        }
+        Text(
+            "block=${row.blockVolume} sos=${row.sosVolume} max=${row.maxVolume} мл",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(4.dp))
+        VolumeRowControls(
+            cellNumber = row.cellNumber,
+            text = text,
+            syrupPrimeEnabled = syrupPrimeEnabled,
+            syrupPrimeBusy = syrupPrimeBusy,
+            onTextChange = onTextChange,
+            onFillToMax = onFillToMax,
+            onSyrupPrime = onSyrupPrime,
+        )
+    }
+}
+
+@Composable
+private fun VolumeRowControls(
+    cellNumber: Int,
     text: String,
     syrupPrimeEnabled: Boolean,
     syrupPrimeBusy: Boolean,
@@ -159,46 +199,54 @@ private fun VolumeRow(
     onFillToMax: (() -> Unit)?,
     onSyrupPrime: (() -> Unit)?,
 ) {
-    Column(Modifier.fillMaxWidth()) {
-        Text(
-            "Ячейка ${row.cellNumber} · ${row.catalogTitle}",
-            style = MaterialTheme.typography.labelLarge,
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SettingsTextField(
+            label = "Объём, мл",
+            value = text,
+            onValueChange = onTextChange,
+            keyboardType = KeyboardType.Number,
+            modifier = Modifier.weight(1f).fillMaxWidth(),
+            fieldKey = "inventory_volume_$cellNumber",
+            maxLength = 12,
         )
-        Spacer(Modifier.height(4.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            SettingsTextField(
-                label = "Объём, мл",
-                value = text,
-                onValueChange = onTextChange,
-                keyboardType = KeyboardType.Number,
-                modifier = Modifier.weight(1f).fillMaxWidth(),
-                fieldKey = "inventory_volume_${row.cellNumber}",
-                maxLength = 12,
-            )
-            if (onFillToMax != null) {
-                Spacer(Modifier.width(8.dp))
-                OutlinedButton(onClick = onFillToMax) {
-                    Text("До полного")
-                }
+        if (onFillToMax != null) {
+            Spacer(Modifier.width(8.dp))
+            OutlinedButton(onClick = onFillToMax) {
+                Text("До полного")
             }
-            if (syrupPrimeEnabled && onSyrupPrime != null) {
-                Spacer(Modifier.width(8.dp))
-                OutlinedButton(
-                    onClick = onSyrupPrime,
-                    enabled = !syrupPrimeBusy,
-                ) {
-                    Text(if (syrupPrimeBusy) "Прокачка..." else "Прокачка 30 мл")
-                }
+        }
+        if (syrupPrimeEnabled && onSyrupPrime != null) {
+            Spacer(Modifier.width(8.dp))
+            OutlinedButton(
+                onClick = onSyrupPrime,
+                enabled = !syrupPrimeBusy,
+            ) {
+                Text(if (syrupPrimeBusy) "Прокачка..." else "Прокачка 30 мл")
             }
         }
     }
 }
 
-private fun buildUpdates(
-    rows: List<MachineInventoryTableRow>,
+private fun volumeStatusLabel(status: CellVolumeStatus): String =
+    when (status) {
+        CellVolumeStatus.STOP -> "стоп"
+        CellVolumeStatus.WARNING -> "мало"
+        CellVolumeStatus.NORMAL -> "норма"
+    }
+
+@Composable
+private fun volumeStatusColor(status: CellVolumeStatus): Color =
+    when (status) {
+        CellVolumeStatus.STOP -> MaterialTheme.colorScheme.error
+        CellVolumeStatus.WARNING -> Color(0xFFB8860B)
+        CellVolumeStatus.NORMAL -> MaterialTheme.colorScheme.primary
+    }
+
+private fun buildMvpUpdates(
+    rows: List<MvpInventoryTableRow>,
     draft: Map<Int, String>,
 ): List<CellVolumeUpdate>? {
     val out = ArrayList<CellVolumeUpdate>(rows.size)

@@ -2,10 +2,7 @@ package com.wiva.android.di
 
 import com.wiva.android.data.local.security.EncryptedMachineSecretStore
 import com.wiva.android.data.local.security.MachineSecretStore
-import com.wiva.android.data.remote.telemetry.WivaTelemetryEventBus
-import com.wiva.android.data.remote.telemetry.WivaTelemetryWebSocketManager
 import com.wiva.android.data.network.NetworkTrafficLogger
-import com.wiva.android.data.remote.telemetry.TelemetryApiService
 import com.wiva.android.data.remote.telemetry.mvp.EpochMillisClock
 import com.wiva.android.data.remote.telemetry.mvp.MvpTelemetryApiClient
 import com.wiva.android.data.remote.telemetry.mvp.SystemEpochMillisClock
@@ -16,7 +13,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Named
 import javax.inject.Singleton
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
@@ -44,10 +40,6 @@ object TelemetryModule {
             .build()
     }
 
- /**
- * Для legacy-Android (API 25) стабилизируем TLS handshake:
- * отключаем HTTP/2 в telemetry-канале и оставляем HTTP/1.1.
- */
     @Provides
     @Singleton
     @Named("telemetryHttp")
@@ -59,25 +51,7 @@ object TelemetryModule {
 
     @Provides
     @Singleton
-    fun provideTelemetryApiService(@Named("telemetry") retrofit: Retrofit): TelemetryApiService =
-        retrofit.create(TelemetryApiService::class.java)
-
-    @Provides
-    @Singleton
     fun provideMachineSecretStore(store: EncryptedMachineSecretStore): MachineSecretStore = store
-
-    @Provides
-    @Singleton
-    fun provideWivaTelemetryWebSocketManager(
-        eventBus: WivaTelemetryEventBus,
-        @AppIoScope appScope: CoroutineScope,
-        networkTrafficLogger: NetworkTrafficLogger,
-    ): WivaTelemetryWebSocketManager =
-        WivaTelemetryWebSocketManager(
-            eventBus,
-            appScope,
-            networkTrafficLogger,
-        )
 
     @Provides
     @Singleton

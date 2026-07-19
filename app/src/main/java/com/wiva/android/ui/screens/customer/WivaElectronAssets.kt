@@ -109,4 +109,8 @@ object WivaElectronAssets {
         val file = mediaKey?.let { MEDIA_KEY_TO_PNG[it] } ?: return null
         return "$ASSET_URI_PREFIX/img/horizontalCard/$file"
     }
+
+    /** Unit-test friendly: есть mp4 в assets для mediaKey (без [android.net.Uri]). */
+    fun hasPreparingVideoAsset(mediaKey: String?): Boolean =
+        mediaKey != null && MEDIA_KEY_TO_VIDEO.containsKey(mediaKey)
 }

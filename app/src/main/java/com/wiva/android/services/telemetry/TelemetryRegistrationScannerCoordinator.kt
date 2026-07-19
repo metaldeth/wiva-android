@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
-/** Fills telemetry registration fields from scanner without auto-registering. */
+/** Emits telemetry registration scan events from barcode/QR; ViewModel applies fields and auto-registers on full QR. */
 data class TelemetryRegistrationScanUiEvent(
     val registrationKey: String,
     val serialNumber: String? = null,

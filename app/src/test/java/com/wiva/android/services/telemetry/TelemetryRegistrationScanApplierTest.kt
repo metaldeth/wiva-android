@@ -2,7 +2,9 @@ package com.wiva.android.services.telemetry
 
 import com.wiva.android.domain.model.TelemetryConfig
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class TelemetryRegistrationScanApplierTest {
@@ -54,5 +56,43 @@ class TelemetryRegistrationScanApplierTest {
                 "Сначала измените адрес API вручную, сохраните, затем повторите сканирование.",
             result.urlWarning,
         )
+    }
+
+    @Test
+    fun `shouldAutoRegister true for full qr with serial and reg key`() {
+        val event =
+            TelemetryRegistrationScanUiEvent(
+                registrationKey = "REG-0123456789AB",
+                serialNumber = "WIVA-000004",
+                apiUrl = "https://194.67.74.147",
+            )
+
+        val result = TelemetryRegistrationScanApplier.apply(event, TelemetryConfig.DEFAULT_API_URL)
+
+        assertTrue(TelemetryRegistrationScanApplier.shouldAutoRegister(result))
+    }
+
+    @Test
+    fun `shouldAutoRegister false for reg key only scan`() {
+        val event = TelemetryRegistrationScanUiEvent(registrationKey = "REG-0123456789AB")
+
+        val result = TelemetryRegistrationScanApplier.apply(event, TelemetryConfig.DEFAULT_API_URL)
+
+        assertFalse(TelemetryRegistrationScanApplier.shouldAutoRegister(result))
+    }
+
+    @Test
+    fun `shouldAutoRegister false when untrusted apiUrl drops serial path is unchanged`() {
+        val event =
+            TelemetryRegistrationScanUiEvent(
+                registrationKey = "REG-0123456789AB",
+                serialNumber = "WIVA-000004",
+                apiUrl = "https://evil.example.com",
+            )
+
+        val result = TelemetryRegistrationScanApplier.apply(event, TelemetryConfig.DEFAULT_API_URL)
+
+        assertTrue(TelemetryRegistrationScanApplier.shouldAutoRegister(result))
+        assertNull(result.apiUrl)
     }
 }

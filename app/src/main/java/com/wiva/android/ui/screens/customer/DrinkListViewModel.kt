@@ -9,7 +9,7 @@ import com.wiva.android.data.remote.telemetry.ConnectionState
 import com.wiva.android.data.repository.ConfigRepository
 import com.wiva.android.hardware.controller.ControllerTrafficEntry
 import com.wiva.android.hardware.controller.WivaControllerTrafficLogger
-import com.wiva.android.data.telemetry.inventory.StoredMachineConfigWire
+import com.wiva.android.domain.customer.TelemetryCellsSnapshotAdapter
 import com.wiva.android.domain.model.SBPLink
 import com.wiva.android.domain.model.SBPStatus
 import com.wiva.android.domain.model.PaymentMethod
@@ -17,18 +17,14 @@ import com.wiva.android.domain.model.ReceiptItem
 import com.wiva.android.domain.model.CardPaymentResult
 import com.wiva.android.domain.model.customer.DrinkConcentration
 import com.wiva.android.domain.model.customer.DrinkContainer
-import com.wiva.android.domain.model.customer.DrinkDosage
-import com.wiva.android.domain.model.customer.DrinkPrice
-import com.wiva.android.domain.model.customer.DrinkProduct
-import com.wiva.android.domain.model.customer.DrinkTaste
 import com.wiva.android.domain.model.customer.DrinkWaterOption
 import com.wiva.android.domain.model.customer.FlowWaterPourType
 import com.wiva.android.domain.model.customer.PrimaryButtonPulseStyle
 import com.wiva.android.domain.model.customer.isUnavailable
 import com.wiva.android.domain.model.customer.toRatio
-import com.wiva.android.domain.repository.MachineInventoryRepository
 import com.wiva.android.domain.repository.NanoKassaRepository
 import com.wiva.android.domain.repository.SBPRepository
+import com.wiva.android.domain.repository.TelemetryCellsRepository
 import com.wiva.android.domain.usecase.CheckSBPStatusUseCase
 import com.wiva.android.domain.usecase.GetSBPLinkUseCase
 import com.wiva.android.hardware.controller.ControllerGateway
@@ -155,7 +151,7 @@ class DrinkListViewModel
 @Inject
 constructor(
     private val configRepository: ConfigRepository,
-    private val inventoryRepository: MachineInventoryRepository,
+    private val telemetryCellsRepository: TelemetryCellsRepository,
     private val preparingManager: PreparingManager,
     private val controllerGateway: ControllerGateway,
     private val paymentTerminalService: PaymentTerminalService,
@@ -219,15 +215,10 @@ constructor(
             }
         }
         viewModelScope.launch {
-            inventoryRepository.inventoryRevision.collect {
-                val live = loadInventoryContainers()
-                if (live.isNotEmpty()) {
-                    val active = _state.value.activeContainer
-                    val updatedActive = active?.let { a ->
-                        live.firstOrNull { it.containerNumber == a.containerNumber }
-                    }
-                    _state.update { it.copy(containers = live, activeContainer = updatedActive) }
-                }
+            telemetryCellsRepository.snapshotFlow.collect { snapshot ->
+                val live =
+                    snapshot?.let { TelemetryCellsSnapshotAdapter.toDrinkContainers(it) }.orEmpty()
+                applyInventoryContainers(live)
             }
         }
         viewModelScope.launch {
@@ -382,8 +373,6 @@ constructor(
                     if (t0 != lastSentT0 || t1 != lastSentT1) {
                         lastSentT0 = t0
                         lastSentT1 = t1
-                        telemetryService.sendSetMachineInfo(t0, t1)
-                            .onFailure { Timber.w(it, "setMachineInfo send failed") }
                     }
                 }
             }
@@ -412,40 +401,14 @@ constructor(
         }
     }
 
-    private suspend fun loadInventoryContainers(): List<DrinkContainer> {
-        val raw = configRepository.getJson(JsonStoreKeys.TELEMETRY_MERGED_INVENTORY) ?: return emptyList()
-        return runCatching {
-            val config = json.decodeFromString(StoredMachineConfigWire.serializer(), raw)
-            config.containers.map { c ->
-                DrinkContainer(
-                    containerNumber = c.containerNumber,
-                    sodaStatus = null,
-                    product = DrinkProduct(
-                        id = c.product.id,
-                        name = c.product.name,
-                        taste = DrinkTaste(
-                            id = c.product.taste.id,
-                            name = c.product.taste.name,
-                            mediaKey = c.product.taste.mediaKey,
-                            hexColor = c.product.taste.hexColor,
-                        ),
-                        dosage = DrinkDosage(
-                            conversionFactor = c.product.dosage.conversionFactor,
-                            drinkVolume = c.product.dosage.drinkVolume,
-                            product = c.product.dosage.product,
-                            water = c.product.dosage.water,
-                        ),
-                        dPrices = c.product.dPrices.map { p -> DrinkPrice(volume = p.volume, priceRub = p.price) },
-                    ),
-                    volumeMl = c.volume ?: 0,
-                    minVolumeMl = c.minVolume,
-                    isActive = c.isActive,
-                )
+    private fun applyInventoryContainers(live: List<DrinkContainer>) {
+        if (live.isEmpty()) return
+        val active = _state.value.activeContainer
+        val updatedActive =
+            active?.let { a ->
+                live.firstOrNull { it.containerNumber == a.containerNumber }
             }
-        }.getOrElse {
-            Timber.e(it, "DrinkListViewModel: loadInventoryContainers")
-            emptyList()
-        }
+        _state.update { it.copy(containers = live, activeContainer = updatedActive) }
     }
 
     fun refreshFlags() {

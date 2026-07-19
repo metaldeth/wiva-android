@@ -6,11 +6,10 @@ import com.wiva.android.domain.model.preparing.PreparingState
 import com.wiva.android.hardware.controller.ControllerGateway
 import com.wiva.android.hardware.controller.WivaWaterCounterService
 import com.wiva.android.hardware.controller.ResponseCommand
-import com.wiva.android.domain.repository.MachineInventoryRepository
-import com.wiva.android.services.inventory.InventoryService
+import com.wiva.android.domain.repository.TelemetryCellsRepository
+import com.wiva.android.domain.customer.TelemetryCellsSnapshotAdapter
 import com.wiva.android.services.calibration.WaterCalibrationService
-import com.wiva.android.services.telemetry.WivaTelemetryService
-import com.wiva.android.services.telemetry.SaleImportItem
+import com.wiva.android.services.inventory.InventoryService
 import com.wiva.android.services.controller.WivaControllerStateService
 import com.wiva.android.services.drink.DrinkPreparationCalculations
 import com.wiva.android.services.drink.WivaDrinkPreparingService
@@ -36,13 +35,12 @@ class PreparingManager
 constructor(
     private val drinkSelection: WivaDrinkSelectionService,
     private val drinkPreparing: WivaDrinkPreparingService,
-    private val inventoryRepository: MachineInventoryRepository,
+    private val cellsRepository: TelemetryCellsRepository,
     private val waterCalibrationService: WaterCalibrationService,
     private val controllerState: WivaControllerStateService,
     private val gateway: ControllerGateway,
     private val onStateChanged: PreparingStateCallback,
     private val inventoryService: InventoryService,
-    private val telemetryService: WivaTelemetryService,
     private val preparingTimeHistoryStore: PreparingTimeHistoryStore,
     private val waterCounter: WivaWaterCounterService,
     private val flowStripRgbCoordinator: FlowStripRgbCoordinator,
@@ -101,7 +99,10 @@ constructor(
             }
 
             val container =
-                inventoryRepository.findDrinkContainerByTasteId(tasteId)
+                cellsRepository.getSnapshot()?.let { snapshot ->
+                    TelemetryCellsSnapshotAdapter.toDrinkContainers(snapshot)
+                        .find { it.product.taste.id == tasteId }
+                }
                     ?: run {
                         val msg = "Контейнер для вкуса $tasteId не найден"
                         emit(PreparingState.Fail(PreparingErrorCodes.CONTAINER_NOT_FOUND, msg))
@@ -162,22 +163,6 @@ constructor(
                         _customerPhase.value = CustomerPreparingPhase.DrinkReady
                         flowStripRgbCoordinator.scheduleGreenForTenSecondsThenRestoreSaved()
                         persistPreparingTimeRecord()
-                        val catalogPrice =
-                            container.product.dPrices.firstOrNull { it.volume == volumeMl }?.priceRub?.toDouble()
-                                ?: 0.0
-                        telemetryService
-                            .sendSaleImportTopic(
-                                listOf(
-                                    SaleImportItem(
-                                        drinkId = container.product.id,
-                                        volume = volumeMl,
-                                        price = catalogPrice,
-                                        payMethod = salePayMethod,
-                                        totalChargedRub =
-                                            salePayMethod?.let { saleTotalPriceRub.coerceAtLeast(0.0) },
-                                    ),
-                                ),
-                            ).onFailure { Timber.tag(TAG).w(it, "saleImportTopic") }
                     } catch (e: Exception) {
                         Timber.tag(TAG).e(e, "await DrinkPreparingSuccess")
                     } finally {

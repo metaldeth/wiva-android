@@ -41,7 +41,8 @@ object JsonStoreKeys {
  /** JSON [com.wiva.android.domain.model.TelemetryConfig] — URL API/WS/Keycloak (. */
     const val TELEMETRY_CONFIG = "telemetryConfig"
  /** `"true"` — отправлять capabilities pingPong при подключении WS; по умолчанию выключено. */
-    const val TELEMETRY_PING_PONG_ENABLED = "telemetryPingPongEnabled"
+    /** JSON Map<Int, Double> — conversionFactor по номеру ячейки (калибровка сиропов). */
+    const val SYRUP_CONVERSION_FACTORS = "syrupConversionFactors"
 
  /** `"true"` — пользователь нажал «Отключить WS»; автоподключение при холодном старте не выполняется. */
     const val TELEMETRY_PAUSED_BY_USER = "telemetryPausedByUser"
@@ -54,6 +55,9 @@ object JsonStoreKeys {
 
  /** Итог merge базы + матрицы (как `config` в WIVA_config.db). */
     const val TELEMETRY_MERGED_INVENTORY = "telemetryMergedInventory"
+
+ /** JSON [com.wiva.android.domain.model.TelemetryCellsSnapshot] — MVP flat cells + products catalog. */
+    const val TELEMETRY_CELLS_SNAPSHOT = "telemetryCellsSnapshot"
 
  /** "true" = тёмная тема, "false"/"отсутствует" = светлая (по умолчанию). */
     const val THEME_IS_DARK = "themeIsDark"

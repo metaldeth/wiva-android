@@ -14,46 +14,20 @@ class SaleImportTopicPayloadTest {
         }
 
     @Test
-    fun saleImportTopic_matchesWivaShape() {
-        val msg =
-            SaleImportOutboundMessage(
-                clientId = "SN-DEMO-1",
-                body =
-                    listOf(
-                        SaleImportItemJson(
-                            dateSale = "2026-04-01T12:00:00.000Z",
-                            orgId = 10,
-                            machineId = 20,
-                            promocodeId = null,
-                            name = "Demo",
-                            volume = 200,
-                            discountId = null,
-                            price = 1.5,
-                            totalPrice = 1.5,
-                            unit = "ML",
-                            writeOffs =
-                                listOf(
-                                    SaleImportWriteOffJson(1, 2, 200),
-                                ),
-                            payments =
-                                listOf(
-                                    SaleImportPaymentJson(1.5, "CARD"),
-                                ),
-                        ),
-                    ),
+    fun saleImportItem_holdsCallerFields() {
+        val item =
+            SaleImportItem(
+                drinkId = 20,
+                volume = 200,
+                price = 1.5,
+                payMethod = "CARD",
+                totalChargedRub = 1.5,
             )
-        val s = json.encodeToString(SaleImportOutboundMessage.serializer(), msg)
-        val decoded = json.decodeFromString(SaleImportOutboundMessage.serializer(), s)
-        assertEquals("saleImportTopic", decoded.type)
-        assertEquals("SN-DEMO-1", decoded.clientId)
-        val item = decoded.body.single()
-        assertEquals("ML", item.unit)
+        assertEquals(20, item.drinkId)
         assertEquals(200, item.volume)
-        assertEquals(null, item.promocodeId)
-        val w = item.writeOffs.single()
-        assertEquals("INGREDIENT", w.cellType)
-        assertEquals("G", w.unit)
-        assertEquals("CARD", item.payments.single().method)
+        assertEquals(1.5, item.price, 0.0)
+        assertEquals("CARD", item.payMethod)
+        assertEquals(1.5, item.totalChargedRub!!, 0.0)
     }
 
     @Test

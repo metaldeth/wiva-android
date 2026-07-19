@@ -1,0 +1,59 @@
+package com.wiva.android.domain.catalog
+
+import com.wiva.android.ui.screens.customer.WivaElectronAssets
+
+/** Allowlist из 14 tasteMediaKey — канон совпадает с [WivaElectronAssets]. */
+object TasteMediaKeyCatalog {
+    data class TasteEntry(
+        val mediaKey: String,
+        val nameRu: String,
+    )
+
+    val ALL_KEYS: List<String> =
+        listOf(
+            "cherry",
+            "blackberry-lime",
+            "coconut",
+            "cucumber",
+            "grapefruit",
+            "lemon",
+            "lime",
+            "lime-mint",
+            "orange",
+            "peach-mango",
+            "pomegranate-blueberry",
+            "raspberry",
+            "strawberry-lemongrass",
+            "watermelon",
+        )
+
+    private val entries: List<TasteEntry> =
+        listOf(
+            TasteEntry("cherry", "Чёрная вишня"),
+            TasteEntry("blackberry-lime", "Ежевика-лайм"),
+            TasteEntry("coconut", "Кокос"),
+            TasteEntry("cucumber", "Огурец"),
+            TasteEntry("grapefruit", "Грейпфрут"),
+            TasteEntry("lemon", "Лимон"),
+            TasteEntry("lime", "Лайм"),
+            TasteEntry("lime-mint", "Лайм-мята"),
+            TasteEntry("orange", "Апельсин"),
+            TasteEntry("peach-mango", "Манго-персик"),
+            TasteEntry("pomegranate-blueberry", "Гранат-черника"),
+            TasteEntry("raspberry", "Малина"),
+            TasteEntry("strawberry-lemongrass", "Клубника-лемонграсс"),
+            TasteEntry("watermelon", "Арбуз"),
+        )
+
+    private val byKey: Map<String, TasteEntry> = entries.associateBy { it.mediaKey }
+
+    fun isValid(mediaKey: String): Boolean = mediaKey in byKey
+
+    fun nameRu(mediaKey: String): String? = byKey[mediaKey]?.nameRu
+
+    fun allEntries(): List<TasteEntry> = entries
+
+    /** true, если для ключа есть PNG в assets (horizontalCard). */
+    fun hasAssetMapping(mediaKey: String): Boolean =
+        isValid(mediaKey) && WivaElectronAssets.horizontalCardImageUri(mediaKey) != null
+}

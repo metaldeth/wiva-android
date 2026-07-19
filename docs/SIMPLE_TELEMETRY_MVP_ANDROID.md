@@ -258,7 +258,7 @@ Nest возвращает вложенный объект в `message`:
 
 - Конверт: `{ type, messageId, sentAt, payload [, correlationId] }`; `ack` с `correlationId`.
 
-- Heartbeat по интервалу из `hello` (сервер по умолчанию 30 с).
+- Heartbeat по интервалу из `hello` (сервер по умолчанию 10 с).
 
 - **RFC6455 ping/pong:** сервер шлёт transport PING; клиент отвечает PONG через `onWebsocketPing` (Java-WebSocket). В traffic log — sampled `MVP WS transport: PING/PONG` без секретов.
 
@@ -287,6 +287,13 @@ Nest возвращает вложенный объект в `message`:
 - `machineRegistration`: `installationId`, `serialNumber`, `machineId`, `wsProtocolUrl`, `tokenEndpoint`, `authScheme`, `enrolled` — **без** `machineSecret` / JWT / plaintext REG.
 
 
+
+## Related contracts
+
+| Document | Purpose |
+|----------|---------|
+| [`wiva-telemetry/docs/contracts/registration-machine-jwt.md`](../../wiva-telemetry/docs/contracts/registration-machine-jwt.md) | REG register, machine JWT, WS envelope v1 baseline |
+| [`wiva-telemetry/docs/contracts/machine-cells-inventory.md`](../../wiva-telemetry/docs/contracts/machine-cells-inventory.md) | WS v2 cell types, REST products/cells, snapshot, reconnect (C-1–C-5) |
 
 ## Legacy
 

@@ -71,9 +71,12 @@ constructor(
     private val heartbeatTrafficLogCounter = AtomicInteger(0)
     private val transportPingLogCounter = AtomicInteger(0)
 
+    /** Делегат cells sync; wiring из [SimpleTelemetryCoordinator]. */
+    var cellsSyncHandler: MvpTelemetryCellsSyncHandler? = null
+
     private companion object {
         val RECONNECT_DELAYS_MS = longArrayOf(1_000, 2_000, 5_000, 10_000, 30_000)
-        const val DEFAULT_HEARTBEAT_INTERVAL_SEC = 30
+        const val DEFAULT_HEARTBEAT_INTERVAL_SEC = 10
         const val AUTH_CLOSE_CODE = 4401
         const val HEARTBEAT_TRAFFIC_LOG_EVERY_N = 20
         const val TRANSPORT_PING_LOG_EVERY_N = 10
@@ -219,6 +222,7 @@ constructor(
             when (envelope.type) {
                 "hello" -> onHello(envelope)
                 "ack" -> onAck(envelope)
+                "cells.snapshot" -> onCellsSnapshot(envelope)
                 else -> Timber.d("MvpTelemetry WS: ignored type=${envelope.type}")
             }
         }.onFailure { Timber.w(it, "MvpTelemetry WS parse failed") }
@@ -232,6 +236,10 @@ constructor(
         _connectionState.value = ConnectionState.Connected
         logSystem("MVP WS: ONLINE serial=${hello.serialNumber}, heartbeat=${heartbeatIntervalSeconds}s")
         startHeartbeatLoop()
+        appScope.launch {
+            runCatching { cellsSyncHandler?.onWebSocketHello() }
+                .onFailure { Timber.w(it, "MvpTelemetry WS: cells sync onHello failed") }
+        }
     }
 
     private fun onAck(envelope: MvpWsEnvelopeDto) {
@@ -239,6 +247,21 @@ constructor(
             envelope.correlationId
                 ?: envelope.payload?.jsonObject?.get("correlationId")?.jsonPrimitive?.content
         Timber.d("MvpTelemetry WS: ack correlationId=$correlation")
+        val payload = envelope.payload?.jsonObject ?: return
+        if (!payload.containsKey("schemaHash")) return
+        appScope.launch {
+            runCatching { cellsSyncHandler?.onSchemaAck(payload) }
+                .onFailure { Timber.w(it, "MvpTelemetry WS: cells sync schema ack failed") }
+        }
+    }
+
+    private fun onCellsSnapshot(envelope: MvpWsEnvelopeDto) {
+        val payloadEl = envelope.payload ?: return
+        val payloadJson = json.encodeToString(kotlinx.serialization.json.JsonElement.serializer(), payloadEl)
+        appScope.launch {
+            runCatching { cellsSyncHandler?.onCellsSnapshot(payloadJson) }
+                .onFailure { Timber.w(it, "MvpTelemetry WS: cells.snapshot handler failed") }
+        }
     }
 
     private fun startHeartbeatLoop() {

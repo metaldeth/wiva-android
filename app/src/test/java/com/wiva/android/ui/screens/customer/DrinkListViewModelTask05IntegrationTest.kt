@@ -23,7 +23,7 @@ import com.wiva.android.domain.model.customer.DrinkDosage
 import com.wiva.android.domain.model.customer.DrinkPrice
 import com.wiva.android.domain.model.customer.DrinkProduct
 import com.wiva.android.domain.model.customer.DrinkTaste
-import com.wiva.android.domain.repository.MachineInventoryRepository
+import com.wiva.android.domain.repository.TelemetryCellsRepository
 import com.wiva.android.domain.repository.NanoKassaRepository
 import com.wiva.android.domain.repository.SBPRepository
 import com.wiva.android.domain.repository.CardPaymentMethodRepository
@@ -188,8 +188,8 @@ class DrinkListViewModelTask05IntegrationTest {
     ): DrinkListViewModel {
         val payScope = CoroutineScope(SupervisorJob() + mainDispatcher)
         val (gw, pts) = createGatewayAndTerminal(payScope, telemetryService)
-        val inventoryRepo = mockk<MachineInventoryRepository>(relaxUnitFun = true)
-        every { inventoryRepo.inventoryRevision } returns MutableStateFlow(0).asStateFlow()
+        val cellsRepo = mockk<TelemetryCellsRepository>(relaxUnitFun = true)
+        every { cellsRepo.snapshotFlow } returns MutableStateFlow(null).asStateFlow()
         val checkSbp = mockk<CheckSBPStatusUseCase>(relaxUnitFun = true)
         coEvery { checkSbp(any()) } returns Result.success(SBPStatus.Pending)
         val nano = mockk<NanoKassaRepository>(relaxUnitFun = true)
@@ -200,7 +200,7 @@ class DrinkListViewModelTask05IntegrationTest {
             MutableStateFlow<List<ControllerTrafficEntry>>(emptyList()).asStateFlow()
         return DrinkListViewModel(
             vmConfigRepo(),
-            inventoryRepo,
+            cellsRepo,
             preparingManager,
             gw,
             pts,
@@ -347,8 +347,8 @@ class DrinkListViewModelTask05IntegrationTest {
                         MutableStateFlow(CustomerPreparingPhase.Idle).asStateFlow()
                 }
         val getSbp = mockk<GetSBPLinkUseCase>(relaxUnitFun = true)
-        val inventoryRepo = mockk<MachineInventoryRepository>(relaxUnitFun = true)
-        every { inventoryRepo.inventoryRevision } returns MutableStateFlow(0).asStateFlow()
+        val cellsRepo = mockk<TelemetryCellsRepository>(relaxUnitFun = true)
+        every { cellsRepo.snapshotFlow } returns MutableStateFlow(null).asStateFlow()
         val checkSbp = mockk<CheckSBPStatusUseCase>(relaxUnitFun = true)
         coEvery { checkSbp(any()) } returns Result.success(SBPStatus.Pending)
         val nano = mockk<NanoKassaRepository>(relaxUnitFun = true)
@@ -360,7 +360,7 @@ class DrinkListViewModelTask05IntegrationTest {
             MutableStateFlow<List<ControllerTrafficEntry>>(emptyList()).asStateFlow()
         return DrinkListViewModel(
             vmConfigRepo(),
-            inventoryRepo,
+            cellsRepo,
             preparing,
             gw,
             pts,

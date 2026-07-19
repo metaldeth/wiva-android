@@ -66,12 +66,7 @@ data class MachineRegistration(
                 enrolled = registered,
                 serialNumber = serial,
                 tokenEndpoint = reg.tokenEndpoint.ifBlank { "/api/v1/machines/token" },
-                wsProtocolUrl =
-                    if (TelemetryConfig.isLegacyWsUrl(reg.wsProtocolUrl)) {
-                        ""
-                    } else {
-                        reg.wsProtocolUrl
-                    },
+                wsProtocolUrl = TelemetryConfig.sanitizeWsUrl(reg.wsProtocolUrl),
             )
         }
 

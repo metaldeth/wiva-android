@@ -79,6 +79,7 @@ class SimpleTelemetryCoordinatorTest {
                         appScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()),
                         networkTrafficLogger = mockk<NetworkTrafficLogger>(relaxed = true),
                     ),
+                cellsSyncCoordinator = mockk(relaxed = true),
                 configRepository = configRepository,
                 machineSecretStore = machineSecretStore,
                 jwtCache = jwtCache,
@@ -95,7 +96,7 @@ class SimpleTelemetryCoordinatorTest {
     fun `reserve and enroll persists serial and credential`() = runTest {
         // given
         val base = server.url("/").toString().removeSuffix("/")
-        coordinator.saveTelemetryConfig(TelemetryConfig(apiUrl = base, useMvpProtocol = true))
+        coordinator.saveTelemetryConfig(TelemetryConfig(apiUrl = base))
         server.enqueue(
             MockResponse()
                 .setResponseCode(200)
@@ -120,7 +121,7 @@ class SimpleTelemetryCoordinatorTest {
     fun `enroll conflict surfaces SerialAlreadyBoundException`() = runTest {
         // given
         val base = server.url("/").toString().removeSuffix("/")
-        coordinator.saveTelemetryConfig(TelemetryConfig(apiUrl = base, useMvpProtocol = true))
+        coordinator.saveTelemetryConfig(TelemetryConfig(apiUrl = base))
         server.enqueue(
             MockResponse()
                 .setResponseCode(409)
@@ -147,8 +148,7 @@ class SimpleTelemetryCoordinatorTest {
                 TelemetryConfig.serializer(),
                 TelemetryConfig(
                     apiUrl = TelemetryConfig.DEFAULT_API_URL,
-                    wsUrl = TelemetryConfig.DEFAULT_WS_URL,
-                    useMvpProtocol = true,
+                    wsUrl = "ws://185.46.8.39:8315/ws",
                 ),
             ),
         )
@@ -174,8 +174,7 @@ class SimpleTelemetryCoordinatorTest {
                 TelemetryConfig.serializer(),
                 TelemetryConfig(
                     apiUrl = TelemetryConfig.DEFAULT_API_URL,
-                    wsUrl = TelemetryConfig.DEFAULT_WS_URL,
-                    useMvpProtocol = true,
+                    wsUrl = "ws://185.46.8.39:8315/ws",
                 ),
             ),
         )
@@ -187,7 +186,7 @@ class SimpleTelemetryCoordinatorTest {
                     serialNumber = "WIVA-000001",
                     machineCredential = "mch_test",
                     machineKey = "mch_test",
-                    wsProtocolUrl = TelemetryConfig.DEFAULT_WS_URL,
+                    wsProtocolUrl = "ws://185.46.8.39:8315/ws",
                     isRegistered = true,
                     enrolled = true,
                     installationId = "inst-1",
@@ -206,6 +205,7 @@ class SimpleTelemetryCoordinatorTest {
             SimpleTelemetryCoordinator(
                 apiClient = mockk(relaxed = true),
                 wsManager = wsManager,
+                cellsSyncCoordinator = mockk(relaxed = true),
                 configRepository = configRepository,
                 machineSecretStore = machineSecretStore,
                 jwtCache = jwtCache,
@@ -243,12 +243,13 @@ class SimpleTelemetryCoordinatorTest {
                         appScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()),
                         networkTrafficLogger = mockk(relaxed = true),
                     ),
+                cellsSyncCoordinator = mockk(relaxed = true),
                 configRepository = configRepository,
                 machineSecretStore = machineSecretStore,
                 jwtCache = jwtCache,
                 appScope = this,
             )
-        localCoordinator.saveTelemetryConfig(TelemetryConfig(useMvpProtocol = true))
+        localCoordinator.saveTelemetryConfig(TelemetryConfig())
         // when
         val result = localCoordinator.reserveFreeSerial()
         // then

@@ -345,15 +345,17 @@ private fun WivaTelemetryConnectionTab(
                 color = MaterialTheme.colorScheme.error,
             )
         }
-        OutlinedButton(
-            onClick = { viewModel.requestTelemetryFreeSerial() },
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .testTag(ServiceMenuTestTags.TELEMETRY_RESERVE_SERIAL),
-            enabled = !state.telemetryBusy,
-        ) {
-            Text("Запросить свободный serial")
+        if (viewModel.isTelemetryFreeSerialUiVisible()) {
+            OutlinedButton(
+                onClick = { viewModel.requestTelemetryFreeSerial() },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(ServiceMenuTestTags.TELEMETRY_RESERVE_SERIAL),
+                enabled = !state.telemetryBusy,
+            ) {
+                Text("Запросить свободный serial")
+            }
         }
         if (state.telemetrySerialConflict || state.telemetryRebindConfirmVisible) {
             Spacer(Modifier.height(12.dp))
@@ -428,41 +430,6 @@ private fun WivaTelemetryConnectionTab(
                 Text("Подключить WS")
             }
         }
-        if (!state.telemetryUseMvpProtocol) {
-            Spacer(Modifier.height(16.dp))
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text("Ping/pong telemetry-machine-ws", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        if (state.telemetryPingPongEnabled) {
-                            "Сейчас включён: при новом WS-подключении приложение отправит capabilities с pingPong=true."
-                        } else {
-                            "Сейчас выключен: capabilities с pingPong=true не отправляется."
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(Modifier.height(12.dp))
-                    OutlinedButton(
-                        onClick = { viewModel.toggleTelemetryPingPong() },
-                        enabled = !state.telemetryBusy,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            if (state.telemetryPingPongEnabled) {
-                                "Выключить ping/pong"
-                            } else {
-                                "Включить ping/pong"
-                            },
-                        )
-                    }
-                }
-            }
-        }
         if (state.telemetryBusy) {
             Spacer(Modifier.height(12.dp))
             Row(
@@ -526,16 +493,6 @@ private fun WivaTelemetryAddressesTab(
             onValueChange = viewModel::setTelemetryWsUrl,
             testTag = ServiceMenuTestTags.TELEMETRY_WS_URL_INPUT,
         )
-        SettingsTextField(
-            label = "Keycloak URL",
-            value = state.telemetryKeycloakUrl,
-            onValueChange = viewModel::setTelemetryKeycloakUrl,
-        )
-        SettingsTextField(
-            label = "Keycloak realm",
-            value = state.telemetryRealm,
-            onValueChange = viewModel::setTelemetryRealm,
-        )
         Button(
             onClick = { viewModel.saveTelemetryEndpoints() },
             enabled = !state.telemetryBusy,
@@ -559,44 +516,10 @@ private fun WivaTelemetryTestsTab(
         Text("Тестовые запросы", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
         Text(
- "Те же обмены, что.ts): при connect уходят " +
-                "cellStoreRequestExport, machineInfo, baseIngredientRequestExportTopic. " +
-                    "Здесь можно повторить запросы вручную; ответы смотрите во вкладке «Логи сети».",
+            "Legacy Shaker topic-запросы удалены. Данные ячеек приходят по MVP WS (cells.snapshot после hello).",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = { viewModel.requestTelemetryFillingMatrix() },
-            enabled = !state.telemetryBusy,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Запросить наполнение (cellStoreRequestExport)")
-        }
-        Spacer(Modifier.height(8.dp))
-        Button(
-            onClick = { viewModel.requestTelemetryBaseIngredients() },
-            enabled = !state.telemetryBusy,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Запросить базу ингредиентов (baseIngredientRequestExportTopic)")
-        }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = { viewModel.requestTelemetryMachineInfo() },
-            enabled = !state.telemetryBusy,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Запросить machineInfo")
-        }
-        Spacer(Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = { viewModel.sendTelemetryDemoSaleImport() },
-            enabled = !state.telemetryBusy,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text("Демо продажа (saleImportTopic)")
-        }
         WivaTelemetryBanner(state)
     }
 }

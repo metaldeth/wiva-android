@@ -79,13 +79,8 @@ constructor(
                 "${VEND_STATUS_RU[status] ?: "Код $status"} (0x$codeHex)",
                 lane = CardPaymentLogLane.FromTerminal,
             )
-            if (status == 4 && !saleImportSentForCurrentSession) {
+            if (status == 4) {
                 saleImportSentForCurrentSession = true
-                scope.launch {
-                    telemetry.sendDemoSaleImportForE2e().onFailure { e ->
-                        Timber.tag(TAG).w(e, "D4: saleImportTopic после Pax 4 не отправлен")
-                    }
-                }
             }
             if (status != 4) {
                 saleImportSentForCurrentSession = false

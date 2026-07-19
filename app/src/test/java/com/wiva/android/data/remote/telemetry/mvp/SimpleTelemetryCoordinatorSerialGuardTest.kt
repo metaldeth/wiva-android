@@ -127,7 +127,7 @@ class SimpleTelemetryCoordinatorSerialGuardTest {
         val coordinator = createCoordinator(this)
         val base = server.url("/").toString().removeSuffix("/")
         seedEnrolled(coordinator, "WIVA-000004", "old-secret")
-        coordinator.saveTelemetryConfig(TelemetryConfig(apiUrl = base, useMvpProtocol = true))
+        coordinator.saveTelemetryConfig(TelemetryConfig(apiUrl = base))
         configRepository.setJson(
             JsonStoreKeys.MACHINE_REGISTRATION,
             json.encodeToString(
@@ -159,6 +159,7 @@ class SimpleTelemetryCoordinatorSerialGuardTest {
                     enrollmentKeyProvider = { "test-key" },
                 ),
             wsManager = wsManager,
+            cellsSyncCoordinator = mockk(relaxed = true),
             configRepository = configRepository,
             machineSecretStore = secretStore,
             jwtCache = jwtCache,
@@ -187,7 +188,7 @@ class SimpleTelemetryCoordinatorSerialGuardTest {
             ),
         )
         secretStore.saveSecret(serial, secret)
-        coordinator.saveTelemetryConfig(TelemetryConfig(useMvpProtocol = true))
+        coordinator.saveTelemetryConfig(TelemetryConfig())
     }
 
     private class InMemoryConfigRepository : ConfigRepository {
