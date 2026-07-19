@@ -29,6 +29,7 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -231,6 +232,10 @@ private fun WivaTelemetryConnectionTab(
     state: ServiceUiState,
     viewModel: ServiceViewModel,
 ) {
+    DisposableEffect(Unit) {
+        viewModel.onTelemetryConnectionTabVisible()
+        onDispose { viewModel.onTelemetryConnectionTabHidden() }
+    }
     val conn by viewModel.telemetryConnectionUi.collectAsStateWithLifecycle()
     SettingsColumn(
         modifier = Modifier.testTag(ServiceMenuTestTags.TELEMETRY_CONNECTION_ROOT),
@@ -294,14 +299,29 @@ private fun WivaTelemetryConnectionTab(
         }
 
         Spacer(Modifier.height(24.dp))
-        Text("Регистрация и подключение (MVP)", style = MaterialTheme.typography.headlineSmall)
+        Text("Регистрация и подключение", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Серийный номер WIVA-000001 — вручную или «Запросить свободный serial». После enroll — WebSocket с machine credential.",
+            "Ключ REG-… из веб-панели (или QR) и серийный номер. После регистрации — WebSocket по JWT.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(12.dp))
+        state.telemetryQrScannedBanner?.let { msg ->
+            Text(
+                text = msg,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.testTag(ServiceMenuTestTags.TELEMETRY_QR_SCANNED_BANNER),
+                color = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(Modifier.height(8.dp))
+        }
+        SettingsTextField(
+            label = "Ключ регистрации (REG-…)",
+            value = state.telemetryRegKey,
+            onValueChange = viewModel::setTelemetryRegKey,
+            testTag = ServiceMenuTestTags.TELEMETRY_REG_KEY_INPUT,
+        )
         SettingsTextField(
             label = "Серийный номер (serialNumber)",
             value = state.telemetrySerial,
@@ -382,14 +402,6 @@ private fun WivaTelemetryConnectionTab(
                 }
             }
         }
-        if (!state.telemetryUseMvpProtocol) {
-            SettingsTextField(
-                label = "Код регистрации (regKey, legacy)",
-                value = state.telemetryRegKey,
-                onValueChange = viewModel::setTelemetryRegKey,
-                testTag = ServiceMenuTestTags.TELEMETRY_REG_KEY_INPUT,
-            )
-        }
         Row(modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = { viewModel.registerTelemetryMachine() },
@@ -397,7 +409,10 @@ private fun WivaTelemetryConnectionTab(
                     Modifier
                         .weight(1f)
                         .testTag(ServiceMenuTestTags.TELEMETRY_REGISTER),
-                enabled = !state.telemetryBusy && state.telemetrySerial.isNotBlank(),
+                enabled =
+                    !state.telemetryBusy &&
+                        state.telemetrySerial.isNotBlank() &&
+                        state.telemetryRegKey.isNotBlank(),
             ) {
                 Text("Регистрация")
             }
@@ -494,7 +509,7 @@ private fun WivaTelemetryAddressesTab(
         Text("Адреса телеметрии", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
         Text(
-            "REST enroll/reserve и WebSocket MVP. Legacy Keycloak — только при useMvpProtocol=false в JSON.",
+            "REG-ключ + serial → JWT WebSocket. URL API и WS задаются ниже.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

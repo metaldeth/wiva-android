@@ -39,6 +39,7 @@ import com.wiva.android.ui.screens.idle.IdleVideoOverlay
 import com.wiva.android.ui.screens.idle.IdleVideoViewModel
 import com.wiva.android.services.telemetry.EmployeeKeyServiceMenuCoordinator
 import com.wiva.android.services.telemetry.LoyaltyCardScanCoordinator
+import com.wiva.android.services.telemetry.TelemetryRegistrationScannerCoordinator
 import com.wiva.android.domain.repository.NanoKassaRepository
 import com.wiva.android.ui.theme.ThemeViewModel
 import dagger.hilt.android.AndroidEntryPoint
@@ -91,6 +92,10 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var employeeKeyServiceMenuCoordinator: EmployeeKeyServiceMenuCoordinator
 
+    /** QR/REG → поля регистрации телеметрии (инициализация @Singleton). */
+    @Inject
+    lateinit var telemetryRegistrationScannerCoordinator: TelemetryRegistrationScannerCoordinator
+
     @Inject
     lateinit var nanoKassaRepository: NanoKassaRepository
 
@@ -136,6 +141,7 @@ class MainActivity : ComponentActivity() {
         hideSystemBars()
         setupImmersiveInsetsListener()
         scannerManager.startReading()
+        telemetryRegistrationScannerCoordinator
         setContent {
             val isDark by themeViewModel.isDark.collectAsStateWithLifecycle()
             val customerPrimaryLightArgb by themeViewModel.customerPrimaryLightArgb.collectAsStateWithLifecycle(

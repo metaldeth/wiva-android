@@ -41,6 +41,9 @@ import com.wiva.android.services.calibration.WaterCalibrationService
 import com.wiva.android.services.calibration.WaterPourResult
 import com.wiva.android.services.calibration.WaterCalibrationWriteResult
 import com.wiva.android.services.calibration.SyrupCalibrationService
+import com.wiva.android.services.telemetry.TelemetryRegistrationScannerCoordinator
+import com.wiva.android.services.telemetry.TelemetryRegistrationScanApplier
+import com.wiva.android.services.telemetry.TelemetryRegistrationScanUiEvent
 import com.wiva.android.services.telemetry.WivaTelemetryService
 import com.wiva.android.domain.model.customer.PrimaryButtonPulseStyle
 import com.wiva.android.domain.model.WaterCalibrationData
@@ -167,6 +170,7 @@ data class ServiceUiState(
     val telemetryBusy: Boolean = false,
     val telemetryBanner: String? = null,
     val telemetryBannerIsError: Boolean = false,
+    val telemetryQrScannedBanner: String? = null,
  /** Дебаг контроллера / оборудование — последний режим и ошибка (0x55 / 0x52). */
     val controllerDebugMode: Int? = null,
     val controllerDebugError: Int? = null,
@@ -268,6 +272,7 @@ constructor(
     private val waterCalibrationService: WaterCalibrationService,
     private val preparingTimeHistoryStore: PreparingTimeHistoryStore,
     private val flowStripRgbCoordinator: FlowStripRgbCoordinator,
+    private val telemetryRegistrationScannerCoordinator: TelemetryRegistrationScannerCoordinator,
 ) : ViewModel() {
     private val _state = MutableStateFlow(ServiceUiState())
     val state: StateFlow<ServiceUiState> = _state.asStateFlow()
@@ -317,6 +322,9 @@ constructor(
 
     private var scannerDiscoveryCollectJob: Job? = null
 
+    @Volatile
+    private var telemetryConnectionTabActive = false
+
     init {
         observeUpdateProgress()
         loadServiceState()
@@ -324,6 +332,7 @@ constructor(
         observeTerminalVendStatus()
         loadTelemetryForm()
         observeTelemetryConnection()
+        observeTelemetryRegistrationScans()
         observeInventoryTable()
         refreshSyrupCalibrationRows()
         refreshPreparingStatsData()
@@ -1177,7 +1186,7 @@ constructor(
     }
 
     fun setTelemetryApiUrl(v: String) {
-        _state.update { it.copy(telemetryApiUrl = v) }
+        _state.update { it.copy(telemetryApiUrl = v, telemetryQrScannedBanner = null) }
     }
 
     fun setTelemetryWsUrl(v: String) {
@@ -1238,8 +1247,43 @@ constructor(
         }
     }
 
+    fun onTelemetryConnectionTabVisible() {
+        telemetryConnectionTabActive = true
+    }
+
+    fun onTelemetryConnectionTabHidden() {
+        telemetryConnectionTabActive = false
+    }
+
+    private fun observeTelemetryRegistrationScans() {
+        viewModelScope.launch {
+            telemetryRegistrationScannerCoordinator.scanEvents.collect { event ->
+                if (!telemetryConnectionTabActive) return@collect
+                applyTelemetryRegistrationScan(event)
+            }
+        }
+    }
+
+    private fun applyTelemetryRegistrationScan(event: TelemetryRegistrationScanUiEvent) {
+        val result =
+            TelemetryRegistrationScanApplier.apply(
+                event = event,
+                currentApiUrl = _state.value.telemetryApiUrl,
+            )
+        setTelemetryRegKey(result.regKey)
+        result.apiUrl?.let { setTelemetryApiUrl(it) }
+        result.serial?.let { setTelemetrySerial(it) }
+        _state.update {
+            it.copy(
+                telemetryQrScannedBanner = result.qrBanner,
+                telemetryBanner = result.urlWarning,
+                telemetryBannerIsError = false,
+            )
+        }
+    }
+
     fun setTelemetryRegKey(v: String) {
-        _state.update { it.copy(telemetryRegKey = v) }
+        _state.update { it.copy(telemetryRegKey = v, telemetryQrScannedBanner = null) }
     }
 
     fun setTelemetrySerial(v: String) {
@@ -1248,6 +1292,7 @@ constructor(
                 telemetrySerial = v,
                 telemetrySerialConflict = false,
                 telemetryRebindConfirmVisible = false,
+                telemetryQrScannedBanner = null,
             )
         }
         viewModelScope.launch {
