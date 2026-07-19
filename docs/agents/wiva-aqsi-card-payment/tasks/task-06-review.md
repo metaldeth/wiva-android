@@ -25,9 +25,9 @@
 
 **Было:** пустой host после trim допускался при Save.
 
-**Сейчас:** в `WivaAqsiSettingsViewModel.buildConfigOrReject` при `host.isBlank()` вызывается `onInvalid("Укажите адрес хоста (FQDN или IP)")`, возвращается `null` — ни Save, ни TCP не идут в репозиторий с невалидной формой.
+**Сейчас:** в `ViwaAqsiSettingsViewModel.buildConfigOrReject` при `host.isBlank()` вызывается `onInvalid("Укажите адрес хоста (FQDN или IP)")`, возвращается `null` — ни Save, ни TCP не идут в репозиторий с невалидной формой.
 
-**Тесты:** `save_rejectsBlankHost_doesNotCallSaveConfig`, `testTcp_rejectsBlankHost_doesNotCallRepositoryPersistence` (`WivaAqsiSettingsViewModelTest`).
+**Тесты:** `save_rejectsBlankHost_doesNotCallSaveConfig`, `testTcp_rejectsBlankHost_doesNotCallRepositoryPersistence` (`ViwaAqsiSettingsViewModelTest`).
 
 **Статус:** закрыто.
 
@@ -35,7 +35,7 @@
 
 **Было:** `init { refresh() }` в ViewModel и `LaunchedEffect(Unit) { refresh() }` в табе.
 
-**Сейчас:** в `WivaAqsiDiagnosticsTab` нет `LaunchedEffect` на `refresh`; обновление — из `init` ViewModel (и после penny test внутри VM).
+**Сейчас:** в `ViwaAqsiDiagnosticsTab` нет `LaunchedEffect` на `refresh`; обновление — из `init` ViewModel (и после penny test внутри VM).
 
 **Статус:** закрыто.
 
@@ -49,7 +49,7 @@
 
 ### 4. Тест `selectAqsi`
 
-**Сейчас:** `selectAqsi_callsSetSelectedAqsi` в `WivaCardPaymentMethodViewModelTest` проверяет репозиторий и UI-state.
+**Сейчас:** `selectAqsi_callsSetSelectedAqsi` в `ViwaCardPaymentMethodViewModelTest` проверяет репозиторий и UI-state.
 
 **Статус:** закрыто.
 

@@ -2,7 +2,7 @@
 
 ## Сделано
 
-- Пакет `com.wiva.android.hardware.controller`: `RequestCommand` / `ResponseCommand` (коды 1:1 с wiva_electron), `ControllerResponseEvent`, `ControllerGateway`.
+- Пакет `com.viwa.android.hardware.controller`: `RequestCommand` / `ResponseCommand` (коды 1:1 с wiva_electron), `ControllerResponseEvent`, `ControllerGateway`.
 - `MockControllerGateway` — журнал исходящих команд, `MutableSharedFlow` (replay 0, extraBufferCapacity 64), `simulateResponse`, логи с тегом `WivaController`.
 - `StubRealControllerGateway` — только лог «real stub», без эмиссий во входящий поток.
 - `DelegatingControllerGateway` — на каждый вызов читает `ConfigRepository.get(JsonStoreKeys.USE_MOCK_CONTROLLER) == "true"`, делегирует моку или стабу; `incomingResponses` = `merge(mock, stub).shareIn(@AppIoScope, Eagerly)`; `simulateResponseForTests` вызывает мок только в мок-режиме.

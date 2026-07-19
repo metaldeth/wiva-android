@@ -1,6 +1,6 @@
 # Итог: stage-b-real-controller (B1, B2, B4)
 
-**sessionId:** `wiva-android-from-electron/modules/stage-b-real-controller`
+**sessionId:** `viwa-android-from-electron/modules/stage-b-real-controller`
 
 **Входной промпт:** в пользовательском сообщении указан только сегмент «3»; по `CHECKLIST_WIVA_ANDROID_STAGES.md` **этап 3** интерпретирован как `moduleId=stage-b-real-controller`, задачи **B1, B2, B4**.
 

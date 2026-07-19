@@ -1,10 +1,10 @@
-# Meta-Orchestrator Log: wiva-android-g-calibration-cooking
+# Meta-Orchestrator Log: viwa-android-g-calibration-cooking
 
 ## [decomposition] Декомпозиция на модули
 
 - 4 модуля: G1 (вода), G2 (сиропы), G3 (готовка), G4 (остатки+телеметрия)
 - 3 волны: волна 1 (G1||G2 параллельно), волна 2 (G3), волна 3 (G4)
-- Общие сущности: WaterCalibrationInfo, ContainerConfig, DosageConfig, PreparingState, WivaTelemetryService
+- Общие сущности: WaterCalibrationInfo, ContainerConfig, DosageConfig, PreparingState, ViwaTelemetryService
 - Статус: decomposition.md создан
 
 ## [decomposition-review] Самопроверка декомпозиции
@@ -12,7 +12,7 @@
 - ✅ Все части ТЗ покрыты модулями
 - ✅ Нет дублирования скоупа
 - ✅ Зависимости корректны, нет циклов
-- ✅ Общие сущности выделены (JsonStoreKeys, PreparingState, WivaTelemetryService)
+- ✅ Общие сущности выделены (JsonStoreKeys, PreparingState, ViwaTelemetryService)
 - Статус: OK, переходим к волне 1
 
 ## [wave-1] G1 — Калибровка воды
@@ -20,7 +20,7 @@
 - Запущен: generalPurpose/orchestrator-agents
 - Результат: ✅ SUCCESS
   - WaterCalibrationService создан
-  - WivaWaterCalibrationTab создан
+  - ViwaWaterCalibrationTab создан
   - Unit-тесты WaterCalibrationCalculationsTest — OK
   - assembleDebug + testDebugUnitTest — OK
   - flowRateMlPerSec без дефолта — подтверждено
@@ -32,9 +32,9 @@
 - Запущен: generalPurpose/orchestrator-agents
 - Результат: ✅ SUCCESS
   - SyrupCalibrationService + SyrupCalibrationMath созданы
-  - WivaSyrupCalibrationTab создан
+  - ViwaSyrupCalibrationTab создан
   - MachineInventoryRepository для конфига контейнеров
-  - WivaTelemetryService расширен: cellVolumeImportTopic + cellStoreImportTopic
+  - ViwaTelemetryService расширен: cellVolumeImportTopic + cellStoreImportTopic
   - Unit-тесты SyrupCalibrationMathTest — OK
   - assembleDebug + testDebugUnitTest — OK
   - summary.md создан
@@ -45,7 +45,7 @@
 - Волна 1 завершена успешно. Общие сущности из G1/G2:
   - WaterCalibrationData (хранилище WATER_CALIBRATION)
   - MachineInventoryRepository (конфиг контейнеров с CF)
-  - WivaTelemetryService (send методы для G4)
+  - ViwaTelemetryService (send методы для G4)
   - ControllerConstants (мок-константы)
 - Переходим к волне 2 (G3)
 
@@ -53,8 +53,8 @@
 
 - Запущен: generalPurpose/orchestrator-agents
 - Результат: ✅ SUCCESS
-  - WivaDrinkSelectionService создан (без дефолта flowRate)
-  - WivaControllerStateService — ensureAutoMode
+  - ViwaDrinkSelectionService создан (без дефолта flowRate)
+  - ViwaControllerStateService — ensureAutoMode
   - PreparingManager — полная цепочка состояний
   - MachineInventoryRepository.findDrinkContainerByTasteId добавлен
   - DrinkListViewModel → PreparingScreen подключены
@@ -74,8 +74,8 @@
   - MachineInventoryRepository расширен: deductContainerVolume, applyCellVolumes, findContainerByNumber
   - PreparingManager подключён к InventoryService + sendSaleImportTopic при SUCCESS
   - DrinkListViewModel передаёт цену/способ оплаты
-  - WivaTelemetryService.sendSaleImportTopic добавлен
-  - WivaInventoryVolumesTab — вкладка остатков в сервисном меню
+  - ViwaTelemetryService.sendSaleImportTopic добавлен
+  - ViwaInventoryVolumesTab — вкладка остатков в сервисном меню
   - JsonStoreKeys.WATER_USAGE_ML добавлен
   - Unit-тесты InventoryWriteOffMathTest — OK
   - assembleDebug + testDebugUnitTest — OK

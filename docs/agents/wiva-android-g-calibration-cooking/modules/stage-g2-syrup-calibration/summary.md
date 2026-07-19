@@ -10,11 +10,11 @@
 |------------|------|
 | Чистая математика и тело команды | `app/src/main/java/com/wiva/android/services/calibration/SyrupCalibrationMath.kt` |
 | Сервис налива и сохранения | `app/src/main/java/com/wiva/android/services/calibration/SyrupCalibrationService.kt` |
-| Телеметрия import | `app/src/main/java/com/wiva/android/services/telemetry/WivaTelemetryService.kt` (`sendCellVolumeImportFromConfig`, `sendCellStoreImportFromConfig`) |
+| Телеметрия import | `app/src/main/java/com/wiva/android/services/telemetry/ViwaTelemetryService.kt` (`sendCellVolumeImportFromConfig`, `sendCellStoreImportFromConfig`) |
 | Сборка тела cellStoreImport | `app/src/main/java/com/wiva/android/services/telemetry/CellStoreImportBodyBuilder.kt` |
 | categoryConfigMachine | `app/src/main/java/com/wiva/android/domain/telemetry/CategoryConfigMachineBuilder.kt` |
 | Конфиг контейнеров | `MachineInventoryRepository` + `MachineInventoryRepositoryImpl` (`listContainersForCalibration`, `updateContainerConversionFactor`) |
-| UI | `app/src/main/java/com/wiva/android/ui/screens/service/tabs/WivaSyrupCalibrationTab.kt`, `ServiceViewModel`, `WivaServiceMenuTabContent.kt` |
+| UI | `app/src/main/java/com/wiva/android/ui/screens/service/tabs/ViwaSyrupCalibrationTab.kt`, `ServiceViewModel`, `ViwaServiceMenuTabContent.kt` |
 | Мок 0x09 | `app/src/main/java/com/wiva/android/hardware/controller/ControllerConnection.kt` |
 | Тесты | `app/src/test/java/com/wiva/android/services/calibration/SyrupCalibrationMathTest.kt` |
 

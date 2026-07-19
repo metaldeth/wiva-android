@@ -36,7 +36,7 @@ docker ps --filter "name=gitlab-runner"
 
 Новый runner должен называться:
 
-- `wiva-android-runner`
+- `viwa-android-runner`
 
 Важно: если токен runner'а начинается с `glrt-`, это новый GitLab authentication token.
 В этом режиме `tag-list`, `locked`, `run-untagged`, `access-level` и похожие параметры
@@ -52,7 +52,7 @@ sudo gitlab-runner register
 
 - GitLab URL: `https://gitlab.com`
 - Token: токен runner'а проекта `wiva-android`
-- Description: `wiva-android-runner`
+- Description: `viwa-android-runner`
 - Executor: `shell`
 
 Теги для runner'а (`android,wiva`) нужно задать в GitLab UI заранее, на шаге создания runner'а.
@@ -65,7 +65,7 @@ sudo gitlab-runner register \
   --url "https://gitlab.com" \
   --token "<WIVA_RUNNER_TOKEN>" \
   --executor "shell" \
-  --description "wiva-android-runner"
+  --description "viwa-android-runner"
 ```
 
 Где `<WIVA_RUNNER_TOKEN>` — токен нового runner'а из GitLab проекта `wiva-android`.
@@ -93,4 +93,4 @@ sudo gitlab-runner list
 Ожидаемый результат: в списке должны быть как минимум:
 
 - `android-kiosk-runner (legacy name)`
-- `wiva-android-runner`
+- `viwa-android-runner`

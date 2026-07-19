@@ -1,13 +1,13 @@
 # task-03 — отчёт по unit-тестам (Arcus2 / AqsiRepositoryImpl)
 
 **Дата:** 2026-05-12  
-**Команда:** `gradlew.bat :app:testDebugUnitTest --tests "com.wiva.android.data.payment.aqsi.*"`
+**Команда:** `gradlew.bat :app:testDebugUnitTest --tests "com.viwa.android.data.payment.aqsi.*"`
 
 ## Результат
 
 | Проверка | Статус |
 |----------|--------|
-| `:app:testDebugUnitTest` (пакет `com.wiva.android.data.payment.aqsi`) | успех |
+| `:app:testDebugUnitTest` (пакет `com.viwa.android.data.payment.aqsi`) | успех |
 | `:app:assembleDebug` | успех |
 
 ## Покрытые сценарии (соответствие чеклисту task-03 и замечаниям ревью)

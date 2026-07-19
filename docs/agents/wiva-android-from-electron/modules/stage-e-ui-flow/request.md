@@ -6,4 +6,4 @@
 
 **Правила:** §2 источники (renderer wiva_electron, оболочка сервис-меню legacy Android kiosk), §3 мок контроллера, §4.1 вопросы владельцу.
 
-**sessionId:** `wiva-android-from-electron/modules/stage-e-ui-flow`
+**sessionId:** `viwa-android-from-electron/modules/stage-e-ui-flow`

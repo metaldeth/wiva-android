@@ -8,11 +8,11 @@
 | Команда | Результат |
 |---------|-----------|
 | `gradlew.bat assembleDebug` | OK |
-| `gradlew.bat :app:testDebugUnitTest --tests com.wiva.android.di.AqsiModuleProvidesContractTest` | OK (запуск **последовательно**; параллельный запуск со второй сборкой падал из‑за **KSP file lock**, не из‑за тестов) |
-| `gradlew.bat :app:connectedDebugAndroidTest` | OK — **3 теста** на эмуляторе **snack-101-800x1280** (AVD); runner процесса: `com.wiva.android.WivaHiltTestRunner` |
+| `gradlew.bat :app:testDebugUnitTest --tests com.viwa.android.di.AqsiModuleProvidesContractTest` | OK (запуск **последовательно**; параллельный запуск со второй сборкой падал из‑за **KSP file lock**, не из‑за тестов) |
+| `gradlew.bat :app:connectedDebugAndroidTest` | OK — **3 теста** на эмуляторе **snack-101-800x1280** (AVD); runner процесса: `com.viwa.android.ViwaHiltTestRunner` |
 
 **Ранее (узкий instrumented-запуск):**  
-`gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.wiva.android.AqsiHiltInjectionTest` — OK, **2 теста** (для отладки / фильтра по классу).
+`gradlew.bat :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.viwa.android.AqsiHiltInjectionTest` — OK, **2 теста** (для отладки / фильтра по классу).
 
 ## Post-review cleanup: Version Catalog
 
@@ -29,7 +29,7 @@
 
 **Причина:** строка `dagger.hilt.android.testing.HiltTestRunner` в `defaultConfig.testInstrumentationRunner` не соответствует классу, попадающему в androidTest APK (артикул `hilt-android-testing` рассчитан на паттерн из [документации Hilt](https://dagger.dev/hilt/instrumentation-testing.html): свой наследник `AndroidJUnitRunner` + `HiltTestApplication`).
 
-**Что сделано:** добавлен `com.wiva.android.WivaHiltTestRunner`; в `app/build.gradle.kts` задан `testInstrumentationRunner = "com.wiva.android.WivaHiltTestRunner"`.
+**Что сделано:** добавлен `com.viwa.android.ViwaHiltTestRunner`; в `app/build.gradle.kts` задан `testInstrumentationRunner = "com.viwa.android.ViwaHiltTestRunner"`.
 
 ## Что покрыто тестами
 
@@ -40,6 +40,6 @@
 
 ## Файлы тестов и runner
 
-- `app/src/androidTest/java/com/wiva/android/WivaHiltTestRunner.kt`
+- `app/src/androidTest/java/com/wiva/android/ViwaHiltTestRunner.kt`
 - `app/src/androidTest/java/com/wiva/android/AqsiHiltInjectionTest.kt`
 - `app/src/test/java/com/wiva/android/di/AqsiModuleProvidesContractTest.kt`

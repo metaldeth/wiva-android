@@ -1,6 +1,6 @@
 # Ревью архитектуры: `stage-f-office`
 
-**Модуль:** `wiva-android` / агентский трек `wiva-android-from-electron`  
+**Модуль:** `wiva-android` / агентский трек `viwa-android-from-electron`  
 **Артефакты:** `architecture.md`, `tz.md`  
 **Роль:** architecture-reviewer (complex mode)
 

@@ -9,8 +9,8 @@
 | Назначение | Путь |
 |------------|------|
 | Состояния (домен) | `domain/model/preparing/PreparingState.kt` |
-| Режим Auto | `services/controller/WivaControllerStateService.kt` |
-| Рецепт 0x50 | `services/drink/WivaDrinkSelectionService.kt`, `ChooseDrinkBodyBuilder.kt` |
+| Режим Auto | `services/controller/ViwaControllerStateService.kt` |
+| Рецепт 0x50 | `services/drink/ViwaDrinkSelectionService.kt`, `ChooseDrinkBodyBuilder.kt` |
 | Расчёт времени | `services/drink/DrinkPreparationCalculations.kt` |
 | Оркестрация | `services/preparing/PreparingManager.kt` |
 | Колбэки G4 | `services/preparing/InventoryWriteOffCallback.kt`, `PreparingStateCallback.kt` |

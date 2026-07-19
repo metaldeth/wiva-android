@@ -7,9 +7,9 @@
 
 | Клиентский UI (electron) | Файлы / компоненты electron | Файлы wiva-android (Kotlin/Compose) |
 |--------------------------|----------------------------|-------------------------------------|
-| Список напитков, шапка опций, низ с primary | `DrinkListPage.tsx`, `DrinkListPageContent.tsx`, `DrinkListPage.module.scss` | `DrinkListScreen.kt`, `WivaCustomerUiTokens.kt` |
+| Список напитков, шапка опций, низ с primary | `DrinkListPage.tsx`, `DrinkListPageContent.tsx`, `DrinkListPage.module.scss` | `DrinkListScreen.kt`, `ViwaCustomerUiTokens.kt` |
 | Опции воды / объёма | `PurchaseMenu/HeaderAction/HeaderAction.tsx`, `HeaderAction.module.scss` | `HeaderActionStrip`, `HeaderOptionChip`, `OptionGroupRow` в `DrinkListScreen.kt` |
-| Карточка напитка | `DrinkList/DrinkCard/DrinkCard.tsx`, `DrinkCard.module.scss` | `WivaDrinkCard` в `DrinkListScreen.kt` (без PNG из assets — градиент+инициал, как временная замена изображений) |
+| Карточка напитка | `DrinkList/DrinkCard/DrinkCard.tsx`, `DrinkCard.module.scss` | `ViwaDrinkCard` в `DrinkListScreen.kt` (без PNG из assets — градиент+инициал, как временная замена изображений) |
 | Основная кнопка | `PurchaseMenu/PrimaryActionButton/*` | `WivaPrimaryActionBar` в `DrinkListScreen.kt` |
 | Модалка оплаты | `PurchaseMenu/PaymentModal/PaymentModal.tsx`, `PaymentModal.module.scss`, контент card/sbp | `CustomerPaymentSheet.kt` + состояние в `DrinkListViewModel.kt` (`PaymentSheetStep`, `paymentSheetVisible`, …) |
 | Экран готовки (прогресс) | `Preparing/PreparingPage.tsx`, `PreparingPage.module.scss`, `PreparingProgressView.tsx` | `PreparingScreen.kt` (панель + `CircularProgressIndicator` с анимацией по `estSeconds`; без видеослоя) |

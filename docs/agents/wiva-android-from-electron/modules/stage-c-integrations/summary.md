@@ -3,7 +3,7 @@
 ## Параметры сессии
 
 - **moduleId:** `stage-c-integrations`
-- **sessionId:** `wiva-android-from-electron/modules/stage-c-integrations`
+- **sessionId:** `viwa-android-from-electron/modules/stage-c-integrations`
 - **Задачи ТЗ:** C1–C4 (MAX, СБП, Нанокасса, DI)
 
 ## Выполнено

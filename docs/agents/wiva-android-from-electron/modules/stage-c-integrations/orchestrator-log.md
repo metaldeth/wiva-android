@@ -2,7 +2,7 @@
 
 ## [init] Старт complex
 
-- sessionId: `wiva-android-from-electron/modules/stage-c-integrations`
+- sessionId: `viwa-android-from-electron/modules/stage-c-integrations`
 - Задачи: C1–C4 (модуль C из ТЗ).
 
 ## [analysis] Аналитик

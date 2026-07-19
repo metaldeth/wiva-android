@@ -32,7 +32,7 @@
 | Android `TelemetryCell` | Domain models (стр. 277–291) |
 | Join на сервере | `MachineCellsSnapshotService` LEFT JOIN (стр. 165); UC-4: server join → next snapshot (стр. 371–372) |
 
-**Верификация vs ТЗ:** критерии #26, #27 (tasteMediaKey → `WivaElectronAssets`, customer drink list из snapshot) выполнимы без скрытого REST.
+**Верификация vs ТЗ:** критерии #26, #27 (tasteMediaKey → `ViwaElectronAssets`, customer drink list из snapshot) выполнимы без скрытого REST.
 
 ---
 
@@ -42,7 +42,7 @@
 |---------------------|----------------------------|
 | Snapshot включает `products[]` | Payload `cells.snapshot` (стр. 176–191); `TelemetryCellsSnapshot.products` (стр. 299–305) |
 | Machine JWT не вызывает GET /products | AuthZ matrix (стр. 257); инвариант C-2 (стр. 17) |
-| Inventory picker на автомате | `WivaTelemetryInventoryTab` ← `snapshot.products[]` (стр. 83); UC-4 (стр. 368–369) |
+| Inventory picker на автомате | `ViwaTelemetryInventoryTab` ← `snapshot.products[]` (стр. 83); UC-4 (стр. 368–369) |
 | Refresh после products CRUD | Lazy on next reconnect / schema report (стр. 17, 189–190, UC-5 стр. 380) |
 
 **Scope-cut не потребовался:** UC-4 (смена продукта на автомате) сохранён; MVP trade-off — задержка обновления каталога после web products CRUD до reconnect (документировано явно).

@@ -12,8 +12,8 @@
 | Замечание круга 1 | Статус круга 2 |
 |-------------------|----------------|
 | `hilt-android-testing` и прочие androidTest-зависимости — выровнять под version catalog | **Закрыто:** в `gradle/libs.versions.toml` есть `hilt-android-testing`, `androidx-test-junit`, `androidx-test-runner`; в `app/build.gradle.kts` используются `libs.hilt.android.testing`, `libs.androidx.test.junit`, `libs.androidx.test.runner`. |
-| Риск «только узкого» connected-запуска с `-Pclass=…` | **Закрыто по отчёту:** `gradlew.bat :app:connectedDebugAndroidTest` — OK, **3 теста** (полный suite на эмуляторе; runner `com.wiva.android.WivaHiltTestRunner`). |
-| Ошибочная строка `dagger.hilt.android.testing.HiltTestRunner` → ClassNotFound | **Закрыто:** `WivaHiltTestRunner` наследует `AndroidJUnitRunner` и подставляет `HiltTestApplication`; `defaultConfig.testInstrumentationRunner` указывает на `com.wiva.android.WivaHiltTestRunner`. |
+| Риск «только узкого» connected-запуска с `-Pclass=…` | **Закрыто по отчёту:** `gradlew.bat :app:connectedDebugAndroidTest` — OK, **3 теста** (полный suite на эмуляторе; runner `com.viwa.android.ViwaHiltTestRunner`). |
+| Ошибочная строка `dagger.hilt.android.testing.HiltTestRunner` → ClassNotFound | **Закрыто:** `ViwaHiltTestRunner` наследует `AndroidJUnitRunner` и подставляет `HiltTestApplication`; `defaultConfig.testInstrumentationRunner` указывает на `com.viwa.android.ViwaHiltTestRunner`. |
 | Сборки / тесты после cleanup | **Закрыто по отчёту:** `assembleDebug`, узкий unit-прогон `AqsiModuleProvidesContractTest`, полный `connectedDebugAndroidTest` — OK. |
 
 Итог по кругу 1: блокирующих и критических хвостов нет. Опциональная проверка на живом устройстве в ТЗ не требуется; для CI достаточно зафиксированного зелёного connected на эмуляторе — **принято**.
@@ -45,7 +45,7 @@
 
 Соответствует п. **2** и **4** task-04: резолв `AqsiRepository`, `assertSame` для двух инжектов holder. Проверка именно `AqsiRepositoryImpl` в графе по-прежнему не обязательна для smoke — осознанный компромисс.
 
-### `WivaHiltTestRunner.kt`
+### `ViwaHiltTestRunner.kt`
 
 Соответствует документации Hilt для instrumentation tests. Регресс по «несуществующему HiltTestRunner в APK» снят.
 
@@ -59,7 +59,7 @@
 
 Не выявлены. Устаревшее предупреждение круга 1 про несогласованность каталога для `hilt-android-testing` **снято**.
 
-**Низкий контекстный риск (без изменения оценки):** глобальный `WivaHiltTestRunner` для всего `:app` по-прежнему означает `HiltTestApplication` для любых будущих `androidTest`; при росте дерева тестов без Hilt может потребоваться отдельная стратегия. Текущий объём — три тестовых класса, два с `@HiltAndroidTest` — приемлемо.
+**Низкий контекстный риск (без изменения оценки):** глобальный `ViwaHiltTestRunner` для всего `:app` по-прежнему означает `HiltTestApplication` для любых будущих `androidTest`; при росте дерева тестов без Hilt может потребоваться отдельная стратегия. Текущий объём — три тестовых класса, два с `@HiltAndroidTest` — приемлемо.
 
 ---
 

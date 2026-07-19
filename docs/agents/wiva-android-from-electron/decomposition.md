@@ -1,6 +1,6 @@
-# Декомпозиция: wiva-android-from-electron
+# Декомпозиция: viwa-android-from-electron
 
-Основана на `wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md` §4 и §6.2. Каждый подмодуль = отдельный complex, артефакты в `docs/agents/wiva-android-from-electron/modules/{moduleId}/`.
+Основана на `wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md` §4 и §6.2. Каждый подмодуль = отдельный complex, артефакты в `docs/agents/viwa-android-from-electron/modules/{moduleId}/`.
 
 ## Модули
 
@@ -42,7 +42,7 @@
 ### Модуль 6: `stage-e-ui-flow`
 
 - **Описание:** UI и бизнес-флоу автомата (выбор напитка/объём, сервисное меню, остальные экраны — отдельными задачами).
-- **Сервисное меню (инвариант):** см. ТЗ §2 таблица «Сервисное меню» — порядок групп/подвкладок = `wiva_electron` `ServiceMenu/constants.ts` (зеркало `WivaServiceMenuStructure.kt`); оболочка и поля = образец `legacy Android kiosk` `ServiceMenuScreen` + `tabs/`. Любые новые настройки только внутри этой иерархии; тяжёлые вкладки выносить в `app/.../service/tabs/*.kt` по аналогии с киоском.
+- **Сервисное меню (инвариант):** см. ТЗ §2 таблица «Сервисное меню» — порядок групп/подвкладок = `wiva_electron` `ServiceMenu/constants.ts` (зеркало `ViwaServiceMenuStructure.kt`); оболочка и поля = образец `legacy Android kiosk` `ServiceMenuScreen` + `tabs/`. Любые новые настройки только внутри этой иерархии; тяжёлые вкладки выносить в `app/.../service/tabs/*.kt` по аналогии с киоском.
 - **Скоуп:** Compose-экраны, состояния как у wiva renderer где нет конфликта с киоском.
 - **Зависимости:** мок контроллера, телеметрия и платежи по мере готовности.
 - **ID задач ТЗ:** E1–E3+.

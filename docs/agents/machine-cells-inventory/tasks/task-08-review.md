@@ -42,7 +42,7 @@
 | Uplink `CellContentReport` — subset без denormalized | ✅ | Отдельный wire DTO + явный map в codec |
 | Downlink snapshot — full payload | ✅ | `decodeSnapshotPayload` мапит products + cells |
 | JsonStore key канон | ✅ | `"telemetryCellsSnapshot"` |
-| 14 tasteMediaKey = `WivaElectronAssets` канон | ✅ | Списки ключей идентичны (см. `WivaElectronAssets` `MEDIA_KEY_TO_PNG`) |
+| 14 tasteMediaKey = `ViwaElectronAssets` канон | ✅ | Списки ключей идентичны (см. `ViwaElectronAssets` `MEDIA_KEY_TO_PNG`) |
 | Atomic replace on snapshot | ✅ | Full document replace через `setJson` |
 | Coordinator / WS — не в task-08 | ✅ | Отложено в task-09 по plan |
 
@@ -60,7 +60,7 @@ _Нет._
 
 #### M-1. Domain → UI dependency в `TasteMediaKeyCatalog`
 
-`domain/catalog/TasteMediaKeyCatalog.kt` импортирует `ui.screens.customer.WivaElectronAssets` для `hasAssetMapping()`. Это инверсия слоёв (domain зависит от UI). Функционально корректно и гарантирует sync с assets, но для долгосрочной архитектуры лучше вынести `MEDIA_KEY_TO_PNG` в shared constants (например `domain/catalog/` или `core/assets`) и использовать в UI и catalog. Не блокер task-08 / task-09.
+`domain/catalog/TasteMediaKeyCatalog.kt` импортирует `ui.screens.customer.ViwaElectronAssets` для `hasAssetMapping()`. Это инверсия слоёв (domain зависит от UI). Функционально корректно и гарантирует sync с assets, но для долгосрочной архитектуры лучше вынести `MEDIA_KEY_TO_PNG` в shared constants (например `domain/catalog/` или `core/assets`) и использовать в UI и catalog. Не блокер task-08 / task-09.
 
 #### M-2. `snapshotFlow` не прогревается при старте репозитория
 
@@ -144,6 +144,6 @@ Codec принимает optional `schemaHash` параметр, но алгор
 {
   "reviewReportFile": "docs/agents/machine-cells-inventory/tasks/task-08-review.md",
   "hasCriticalIssues": false,
-  "commentsSummary": "Domain models, JsonStore snapshot repository, 14-key TasteMediaKeyCatalog, CellUuidAllocator и TelemetryCellsMessageCodec реализованы по architecture §Android: uplink content без productName/tasteMediaKey, downlink snapshot с products[] и denormalized cells, atomic replace, WS wiring отсутствует. Unit-тесты 7/7+3 PASS. Некритично: domain→UI dependency в catalog (WivaElectronAssets), snapshotFlow без eager load до getSnapshot(), schemaHash на устройстве — в task-09."
+  "commentsSummary": "Domain models, JsonStore snapshot repository, 14-key TasteMediaKeyCatalog, CellUuidAllocator и TelemetryCellsMessageCodec реализованы по architecture §Android: uplink content без productName/tasteMediaKey, downlink snapshot с products[] и denormalized cells, atomic replace, WS wiring отсутствует. Unit-тесты 7/7+3 PASS. Некритично: domain→UI dependency в catalog (ViwaElectronAssets), snapshotFlow без eager load до getSnapshot(), schemaHash на устройстве — в task-09."
 }
 ```

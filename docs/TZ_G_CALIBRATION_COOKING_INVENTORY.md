@@ -13,7 +13,7 @@
 
 ## G1 — Калибровка воды
 
-**Вкладка сервисного меню:** «Калибровка» → подвкладка «Вода» (по структуре из `wiva_electron/src/renderer/components/ServiceMenu/constants.ts`).
+**Вкладка сервисного меню:** «Калибровка» → подвкладка «Вода» (по структуре из `viwa_electron/src/renderer/components/ServiceMenu/constants.ts`).
 
 ### Эталон (electron)
 
@@ -114,7 +114,7 @@
 | Тело команды ChooseDrink | `src/main/hardware/controller/commands/chooseDrinkBody.ts` |
 | Состояния (enum) | `src/common/types/PreparingDTO.ts` — `PreparingState` |
 | UI экрана готовки | `src/renderer/pages/Preparing/` |
-| Android (уже есть) | `services/drink/WivaDrinkPreparingService.kt`, `ui/screens/customer/PreparingScreen.kt` |
+| Android (уже есть) | `services/drink/ViwaDrinkPreparingService.kt`, `ui/screens/customer/PreparingScreen.kt` |
 
 ### Последовательность
 
@@ -256,4 +256,4 @@ G1 и G2 можно запустить одновременно. G3 зависи
 - Протокол контроллера, команды, байтовые форматы — **wiva_electron** (`hardware/controller/**`).
 - Телеметрия (структуры топиков, порядок вызовов) — **wiva_electron** (`modules/telemetry/**`).
 - Транспорт WebSocket, регистрация — **legacy Android kiosk**.
-- Сервисное меню: структура групп/вкладок — `WivaServiceMenuStructure.kt`, вёрстка — `ServiceScreen.kt` + `service/tabs/*`.
+- Сервисное меню: структура групп/вкладок — `ViwaServiceMenuStructure.kt`, вёрстка — `ServiceScreen.kt` + `service/tabs/*`.

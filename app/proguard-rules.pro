@@ -1,4 +1,4 @@
-# Wiva Android — R8 (Hilt, OkHttp, kotlinx.serialization, Room)
+# Viwa Android — R8 (Hilt, OkHttp, kotlinx.serialization, Room)
 
 # ── Hilt ──────────────────────────────────────────────────────────────────────
 -keep class dagger.hilt.** { *; }
@@ -34,11 +34,11 @@
 # ── Kotlinx Serialization ─────────────────────────────────────────────────────
 -keepattributes *Annotation*, InnerClasses
 -dontnote kotlinx.serialization.AnnotationsKt
--keep,includedescriptorclasses class com.wiva.android.**$$serializer { *; }
--keepclassmembers class com.wiva.android.** {
+-keep,includedescriptorclasses class com.viwa.android.**$$serializer { *; }
+-keepclassmembers class com.viwa.android.** {
     *** Companion;
 }
--keepclasseswithmembers class com.wiva.android.** {
+-keepclasseswithmembers class com.viwa.android.** {
     kotlinx.serialization.KSerializer serializer(...);
 }
 -keep @kotlinx.serialization.Serializable class * { *; }
@@ -50,9 +50,9 @@
 -dontwarn okio.**
 -keep class retrofit2.** { *; }
 -keep interface retrofit2.** { *; }
--keep interface com.wiva.android.data.remote.** { *; }
--keepclassmembers interface com.wiva.android.data.remote.** { *; }
--keep class com.wiva.android.data.remote.** { *; }
+-keep interface com.viwa.android.data.remote.** { *; }
+-keepclassmembers interface com.viwa.android.data.remote.** { *; }
+-keep class com.viwa.android.data.remote.** { *; }
 -keepattributes Signature
 -keepattributes Exceptions
 
@@ -61,7 +61,7 @@
 -keep @androidx.room.Entity class * { *; }
 -keep @androidx.room.Dao interface * { *; }
 
-# ── Media3 (промо-видео wiva_electron) ─────────────────────────────────────────
+# ── Media3 (промо-видео viwa_electron) ─────────────────────────────────────────
 -keep class androidx.media3.** { *; }
 -dontwarn androidx.media3.**
 

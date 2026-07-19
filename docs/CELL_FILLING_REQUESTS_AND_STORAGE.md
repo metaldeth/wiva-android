@@ -632,14 +632,14 @@ sequenceDiagram
 
 | Компонент | Статус vs evoq/shaker | Примечание |
 |-----------|----------------------|------------|
-| WS inbound: `cellStore*`, `baseIngredient*`, `cellVolumeExport` | **Портировано** | `WivaTelemetryService` + `MachineInventoryRepositoryImpl` |
+| WS inbound: `cellStore*`, `baseIngredient*`, `cellVolumeExport` | **Портировано** | `ViwaTelemetryService` + `MachineInventoryRepositoryImpl` |
 | Merge base + matrix | **Портировано** | `MergeBaseAndMatrix.kt` — parity evoq |
 | JsonStore keys | **Портировано** | `JsonStoreKeys.kt` = evoq |
 | WS uplink: `cellVolumeImportTopic` | **Портировано** | только cells 1…6, cups/waters/disposables `[]` |
 | WS uplink: `cellStoreImportTopic` | **Портировано** | после калибровки сиропа |
 | `saleImportTopic` + writeOffs | **Портировано** | после cook / Pax |
-| UI «Наполнение» (read-only) | **Портировано** | `WivaTelemetryInventoryTab` |
-| UI «Остатки» (edit volume) | **Портировано** | `WivaInventoryVolumesTab` |
+| UI «Наполнение» (read-only) | **Портировано** | `ViwaTelemetryInventoryTab` |
+| UI «Остатки» (edit volume) | **Портировано** | `ViwaInventoryVolumesTab` |
 | Customer catalog from merge | **Портировано** | `DrinkListViewModel` — без merge пусто |
 | REST cell filling/refill | **Отсутствует** (by design) | только WS legacy |
 | Snack inventory | **Отсутствует** | не в scope Wiva drink |
@@ -651,7 +651,7 @@ sequenceDiagram
 | `TELEMETRY_EXCHANGES_INVENTORY.md` | **Устарел** | помечает merge как «этап E / Log» — уже реализовано |
 | shaker-android hybrid drink inbound | **Не wired** | uplink only; snack wired в Room |
 
-**Parity evoq_android ↔ wiva-android:** контракт наполнения практически идентичен (`com.wiva.android` vs `com.shaker.evoq`); отличия — оплата, брендинг, MVP telemetry flag.
+**Parity evoq_android ↔ wiva-android:** контракт наполнения практически идентичен (`com.viwa.android` vs `com.shaker.evoq`); отличия — оплата, брендинг, MVP telemetry flag.
 
 ---
 
@@ -663,7 +663,7 @@ sequenceDiagram
 4. **Race offline:** двусторонний refill (web push vs machine uplink) без очереди/idempotency на клиенте.
 5. **6 ячеек hardcoded** в `sendCellVolumeImportFromConfig` — параметризовать по модели?
 6. **`saleImportTopic` unit G vs local deduct ml** — сверка с backend/electron (wiva_electron не в workspace).
-7. **Water usage:** TZ G4 (`WATER_USAGE_ML` из dosage) vs реализация через `WivaWaterCounterService`.
+7. **Water usage:** TZ G4 (`WATER_USAGE_ML` из dosage) vs реализация через `ViwaWaterCounterService`.
 8. **Snack / kiosk:** явно out of scope Wiva v1 или phase 2?
 9. **Filling templates / snapshots:** нужен ли UI/REST на стороне Wiva или только consume WS?
 10. **Документация:** обновить `TELEMETRY_EXCHANGES_INVENTORY.md` под фактическую реализацию merge.
@@ -711,7 +711,7 @@ sequenceDiagram
 
 | Область | Путь |
 |---------|------|
-| WS service | `c:\wiva\wiva-android\app\src\main\java\com\wiva\android\services\telemetry\WivaTelemetryService.kt` |
+| WS service | `c:\wiva\wiva-android\app\src\main\java\com\wiva\android\services\telemetry\ViwaTelemetryService.kt` |
 | Import builder | `...\services\telemetry\CellStoreImportBodyBuilder.kt` |
 | Inventory repo | `...\data\repository\MachineInventoryRepositoryImpl.kt` |
 | Wire models | `...\data\telemetry\inventory\MachineInventoryModels.kt` |
@@ -719,7 +719,7 @@ sequenceDiagram
 | categoryConfigMachine | `...\domain\telemetry\CategoryConfigMachineBuilder.kt` |
 | Json keys | `...\data\local\db\JsonStoreKeys.kt` |
 | Write-off | `...\services\inventory\InventoryService.kt`, `InventoryWriteOffMath.kt` |
-| UI | `...\ui\screens\service\tabs\WivaTelemetryInventoryTab.kt`, `WivaInventoryVolumesTab.kt` |
+| UI | `...\ui\screens\service\tabs\ViwaTelemetryInventoryTab.kt`, `ViwaInventoryVolumesTab.kt` |
 | Docs (смежные) | `c:\wiva\wiva-android\docs\TELEMETRY_EXCHANGES_INVENTORY.md`, `TZ_G_CALIBRATION_COOKING_INVENTORY.md` |
 
 ### shaker-android (hybrid / snack reference)

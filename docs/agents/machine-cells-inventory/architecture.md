@@ -11,7 +11,7 @@
 - **Flat-модель:** одна запись = одна физическая продуктовая ячейка; без cups/water/disposables/mixOfTastes.
 - **Цены end-to-end:** `Int` копейки (WS, REST, PostgreSQL, Android) — **без** Decimal/float.
 - **Объёмы:** `Int` мл, ≥ 0; валидация `0 <= blockVolume <= sosVolume <= maxVolume`.
-- **tasteMediaKey:** строго 14 ключей из allowlist (канон Android: `WivaElectronAssets.kt` → PNG/video).
+- **tasteMediaKey:** строго 14 ключей из allowlist (канон Android: `ViwaElectronAssets.kt` → PNG/video).
 - **Конфликт content (OQ-8):** per-cell `contentSource` (`MACHINE` | `DASHBOARD`); dashboard PATCH → `DASHBOARD` и блокирует apply product/prices с автомата; LWW по `updatedAt` — **только** между двумя `contentSource=MACHINE` content reports.
 - **Denormalized product в snapshot (C-1):** downlink `cells.snapshot` и REST `CellDto` несут `productName`, `tasteMediaKey` per cell; uplink `cells.content.report` — только `productUuid` (+ prices/volumes).
 - **Каталог продуктов на автомате (C-2):** snapshot downlink включает `products[]`; machine JWT **не** вызывает `GET /products`; refresh каталога после products CRUD — **lazy on next hello/schema report** (MVP).
@@ -73,14 +73,14 @@
 | **MvpTelemetryWebSocketManager** (расширение) | существующий | Callback/downlink dispatch для `cells.snapshot`; делегирование в coordinator. |
 | **SimpleTelemetryCoordinator** (расширение) | существующий | После `hello` → trigger schema report; wire coordinator lifecycle. |
 | **TelemetryCellsSnapshotAdapter** | `domain/customer/` или `ui/screens/customer/` | Map snapshot → `DrinkContainer` для customer UI **без** legacy merge path. |
-| **WivaElectronAssets** | существующий | `horizontalCardImageUri(tasteMediaKey)`, `preparingVideoUri` — резолв PNG/video по ключу продукта. |
+| **ViwaElectronAssets** | существующий | `horizontalCardImageUri(tasteMediaKey)`, `preparingVideoUri` — резолв PNG/video по ключу продукта. |
 
 ### wiva-android — UI (service menu + customer)
 
 | Комponent | Расположение | Ответственность |
 |-----------|--------------|-----------------|
-| **WivaInventoryVolumesTab** (рефактор) | `ui/screens/service/tabs/` | Edit volume → local snapshot → `cells.volume.report` (MVP path). |
-| **WivaTelemetryInventoryTab** (рефактор) | `ui/screens/service/tabs/` | Product picker из **локального** `snapshot.products[]`; edit product/prices → `cells.content.report` (uplink: `productUuid` only, без denormalized fields). |
+| **ViwaInventoryVolumesTab** (рефактор) | `ui/screens/service/tabs/` | Edit volume → local snapshot → `cells.volume.report` (MVP path). |
+| **ViwaTelemetryInventoryTab** (рефактор) | `ui/screens/service/tabs/` | Product picker из **локального** `snapshot.products[]`; edit product/prices → `cells.content.report` (uplink: `productUuid` only, без denormalized fields). |
 | **ServiceViewModel** (расширение) | существующий | Bind snapshot Flow; block/sos индикация §3.1.1; gate legacy vs MVP inventory source. |
 | **DrinkListViewModel** (расширение) | существующий | При `useMvpProtocol` — drink list из `TelemetryCellsSnapshotAdapter`, не `telemetryMergedInventory`. |
 | **JsonStoreKeys** | `TELEMETRY_CELLS_SNAPSHOT = "telemetryCellsSnapshot"` | Новый ключ; legacy keys не удалять. |
@@ -107,7 +107,7 @@
 
 ```json
 {
-  "serialNumber": "WIVA-000004",
+  "serialNumber": "VIWA-000004",
   "protocolVersion": 2,
   "heartbeatIntervalSeconds": 30,
   "supportedMessageTypes": [
@@ -309,7 +309,7 @@ data class TelemetryCellsSnapshot(
 
 ### Allowlist tasteMediaKey (14)
 
-Канон API = канон `WivaElectronAssets.MEDIA_KEY_TO_PNG`:
+Канон API = канон `ViwaElectronAssets.MEDIA_KEY_TO_PNG`:
 
 `cherry`, `blackberry-lime`, `coconut`, `cucumber`, `grapefruit`, `lemon`, `lime`, `lime-mint`, `orange`, `peach-mango`, `pomegranate-blueberry`, `raspberry`, `strawberry-lemongrass`, `watermelon`.
 
@@ -388,7 +388,7 @@ MachineCellsSection → PATCH /machines/:id/cells (no volume)
   → if MachinesWsRegistry.hasActiveConnection → cells.snapshot (products[] + denormalized cells)
 Android TelemetryCellsSyncCoordinator → full replace snapshot (products + cells)
   → ServiceViewModel + DrinkListViewModel refresh
-  → tasteMediaKey → WivaElectronAssets PNG/video (from cell or products catalog)
+  → tasteMediaKey → ViwaElectronAssets PNG/video (from cell or products catalog)
 ```
 
 ### UC-7: Reconnect snapshot
@@ -553,4 +553,4 @@ flowchart LR
 | `docs/FEATURE_MACHINE_CELLS_INVENTORY.md` | Brief + reconcile algorithm |
 | `wiva-telemetry/docs/contracts/registration-machine-jwt.md` | JWT + WS v1 baseline |
 | `wiva-android/docs/SIMPLE_TELEMETRY_MVP_ANDROID.md` | Android MVP telemetry |
-| `wiva-android/.../WivaElectronAssets.kt` | tasteMediaKey → assets |
+| `wiva-android/.../ViwaElectronAssets.kt` | tasteMediaKey → assets |

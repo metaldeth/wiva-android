@@ -27,7 +27,7 @@
 
 - Отдельный раздел web UI: **одна таблица всех продуктов**.
 - Поля продукта: **название** + **вкус** (`tasteMediaKey`) — один из допустимых в Android (привязаны к картинкам).
-- Allowlist (канон `WivaElectronAssets.kt`):  
+- Allowlist (канон `ViwaElectronAssets.kt`):  
   `cherry`, `blackberry-lime`, `coconut`, `cucumber`, `grapefruit`, `lemon`, `lime`, `lime-mint`, `orange`, `peach-mango`, `pomegranate-blueberry`, `raspberry`, `strawberry-lemongrass`, `watermelon`.
 - CRUD: добавлять / редактировать / удалять. При добавлении: ввод названия + выбор вкуса из списка.
 

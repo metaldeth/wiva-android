@@ -55,9 +55,9 @@
 
 | Компонент | Ответственность |
 |-----------|-----------------|
-| Расширение `WivaServiceMenuStructure.kt` | Новая группа «Оплата картой» и три подвкладки (идентификаторы — по ТЗ): метод карты, настройки aQsi, диагностика aQsi. Только **добавление** сидов меню, без правок существующих групп/вкладок. |
-| `WivaServiceMenuTabContent.kt` (или роутер) | Новые ветки `when` по id подвкладок → композABLE из пакета `tabs/`. |
-| `ui/screens/service/tabs/…` | Три экрана (или один файл с тремя секциями): **Метод** (PAX vs aQsi), **Настройки** (host/port/timeout, сохранить, тест соединения), **Диагностика** (текущий метод, сводка последнего сеанса/транзакции; тест на 1 коп. — только dev/mock guard). Вёрстка в стиле существующих `tabs/*`. Реализация (task-06): `WivaCardPaymentMethodTab` + `WivaCardPaymentMethodViewModel`, `WivaAqsiSettingsTab` + `WivaAqsiSettingsViewModel`, `WivaAqsiDiagnosticsTab` + `WivaAqsiDiagnosticsViewModel`, политика кнопки 1 коп. — `CardPaymentServiceMenuPolicy`. |
+| Расширение `ViwaServiceMenuStructure.kt` | Новая группа «Оплата картой» и три подвкладки (идентификаторы — по ТЗ): метод карты, настройки aQsi, диагностика aQsi. Только **добавление** сидов меню, без правок существующих групп/вкладок. |
+| `ViwaServiceMenuTabContent.kt` (или роутер) | Новые ветки `when` по id подвкладок → композABLE из пакета `tabs/`. |
+| `ui/screens/service/tabs/…` | Три экрана (или один файл с тремя секциями): **Метод** (PAX vs aQsi), **Настройки** (host/port/timeout, сохранить, тест соединения), **Диагностика** (текущий метод, сводка последнего сеанса/транзакции; тест на 1 коп. — только dev/mock guard). Вёрстка в стиле существующих `tabs/*`. Реализация (task-06): `ViwaCardPaymentMethodTab` + `ViwaCardPaymentMethodViewModel`, `ViwaAqsiSettingsTab` + `ViwaAqsiSettingsViewModel`, `ViwaAqsiDiagnosticsTab` + `WivaAqsiDiagnosticsViewModel`, политика кнопки 1 коп. — `CardPaymentServiceMenuPolicy`. |
 
 ### UI — зона заказа
 

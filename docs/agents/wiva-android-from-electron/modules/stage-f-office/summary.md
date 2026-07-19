@@ -1,6 +1,6 @@
 # Итог: stage-f-office (модуль F — офис / железо)
 
-**sessionId:** `wiva-android-from-electron/modules/stage-f-office`
+**sessionId:** `viwa-android-from-electron/modules/stage-f-office`
 
 ## Сделано в репозитории
 

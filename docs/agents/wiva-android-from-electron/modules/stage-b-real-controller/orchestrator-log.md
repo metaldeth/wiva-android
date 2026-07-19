@@ -1,4 +1,4 @@
-# Оркестратор: wiva-android-from-electron/modules/stage-b-real-controller
+# Оркестратор: viwa-android-from-electron/modules/stage-b-real-controller
 
 ## [explore] Субагенты (complex)
 

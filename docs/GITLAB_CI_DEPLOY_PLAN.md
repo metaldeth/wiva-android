@@ -12,11 +12,11 @@
 ## Что уже готово в репозитории
 
 - Release signing уже настроен в `app/build.gradle.kts`.
-- Имя APK стандартизовано: `wiva-android-{versionName}-release.apk`.
+- Имя APK стандартизовано: `viwa-android-{versionName}-release.apk`.
 - OTA-сервер уже реализован в `update-server/server.js`.
 - Docker-конфиг уже монтирует каталог `./release:/app/release:ro`.
 - Документация OTA уже есть в `docs/OTA_UPDATE.md`.
-- Runner для проекта создаётся как `wiva-android-runner`.
+- Runner для проекта создаётся как `viwa-android-runner`.
 
 ## Общая модель деплоя
 
@@ -33,7 +33,7 @@
 
 На сервере уже должен быть зарегистрирован runner:
 
-- `wiva-android-runner`
+- `viwa-android-runner`
 
 Проверки:
 
@@ -99,7 +99,7 @@ sudo systemctl status gitlab-runner
 
 Почему это важно:
 
-- `update-server` ищет только `wiva-android-*-release.apk`
+- `update-server` ищет только `viwa-android-*-release.apk`
 - нельзя смешивать релизы разных приложений в одном общем каталоге без namespace
 
 Если `update-server` уже запущен через `docker-compose.yml`, нужно убедиться, что он читает именно этот каталог.
@@ -176,7 +176,7 @@ curl http://<ota-host>:9082/version.json
 Пример логики:
 
 ```bash
-scp app/build/outputs/apk/release/wiva-android-*-release.apk "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
+scp app/build/outputs/apk/release/viwa-android-*-release.apk "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/"
 ```
 
 Если deploy выполняется на том же сервере, где живёт `update-server`, можно копировать просто локальным `cp` без `scp`.
@@ -236,7 +236,7 @@ curl http://<ota-host>:9082/version.json
 
 ## Итоговый чеклист
 
-- [ ] runner `wiva-android-runner` зарегистрирован и онлайн
+- [ ] runner `viwa-android-runner` зарегистрирован и онлайн
 - [ ] теги runner'а настроены в GitLab UI
 - [ ] Java/Android SDK доступны на runner'е
 - [ ] release signing работает в CI

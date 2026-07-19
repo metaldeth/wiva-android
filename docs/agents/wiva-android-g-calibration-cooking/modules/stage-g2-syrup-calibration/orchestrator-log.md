@@ -6,5 +6,5 @@
 
 ## Результат
 
-- Код: `SyrupCalibrationService`, `SyrupCalibrationMath`, телеметрия `sendCellVolumeImportFromConfig` / `sendCellStoreImportFromConfig`, репозиторий наполнения, UI `WivaSyrupCalibrationTab`, мок 0x09 в `ControllerConnection`.
+- Код: `SyrupCalibrationService`, `SyrupCalibrationMath`, телеметрия `sendCellVolumeImportFromConfig` / `sendCellStoreImportFromConfig`, репозиторий наполнения, UI `ViwaSyrupCalibrationTab`, мок 0x09 в `ControllerConnection`.
 - Сборка: `assembleDebug`, `:app:testDebugUnitTest` — успех.

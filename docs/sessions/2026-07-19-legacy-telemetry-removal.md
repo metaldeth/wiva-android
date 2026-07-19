@@ -15,7 +15,7 @@
 - Температура не в heartbeat
 
 ## Verification
-- assembleDebug exit 0 — SUCCESS, APK `wiva-android-26.07.19.02-debug.apk`
+- assembleDebug exit 0 — SUCCESS, APK `viwa-android-26.07.19.02-debug.apk`
 - Unit tests telemetry — не прогонялись полноценно из-за ENV_LOCK ранее; после успешного assemble не перезапускались
 
 ## Git facts

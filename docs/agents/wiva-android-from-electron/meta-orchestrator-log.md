@@ -1,4 +1,4 @@
-# Лог мета-оркестратора: wiva-android-from-electron
+# Лог мета-оркестратора: viwa-android-from-electron
 
 ## [init] Старт мета-сессии
 
@@ -21,7 +21,7 @@
 ## [wave-1] Модуль `stage-a-carcass-ota`
 
 - **Статус:** ожидает запуск **complex**-оркестратора (субагент с `orchestrator-agents`, не мета-оркестратор).
-- **sessionId для complex:** `wiva-android-from-electron/modules/stage-a-carcass-ota` (каталог артефактов: `docs/agents/wiva-android-from-electron/modules/stage-a-carcass-ota/`).
+- **sessionId для complex:** `viwa-android-from-electron/modules/stage-a-carcass-ota` (каталог артефактов: `docs/agents/viwa-android-from-electron/modules/stage-a-carcass-ota/`).
 - **Условие перехода к волне 2:** наличие `summary.md` в каталоге модуля и закрытие DoD A1–A4 по ТЗ.
 
 ## [wave-3] Модуль `stage-b-real-controller`

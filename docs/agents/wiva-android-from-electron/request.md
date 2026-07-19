@@ -1,6 +1,6 @@
 # Запрос мета-сессии
 
-**metaSessionId:** `wiva-android-from-electron`
+**metaSessionId:** `viwa-android-from-electron`
 
 **Источник:** команда пользователя `/Meta-complex` с привязкой к `wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md`.
 

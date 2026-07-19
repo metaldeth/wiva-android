@@ -24,10 +24,10 @@
 | Документ | Путь от корня монорепо |
 |----------|-------------------------|
 | Основное ТЗ Wiva Android (§2 источники, §3 мок) | `wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md` |
-| Порты serial, скорость, пути устройств (Electron) | `wiva_electron/docs/SERIAL_PORTS_IMPLEMENTATION.md` |
-| Протокол контроллера (Electron) | `wiva_electron/src/main/hardware/controller/` (`ControllerProtocol.ts` и смежное) |
-| Сервис терминала (Electron) | `wiva_electron/src/main/services/payment/PaymentTerminalService.ts` |
-| Модули оплаты (Electron) | `wiva_electron/src/main/modules/payment/` (`index.ts`, `service.ts`, `manager.ts`, `preparing/`, `paymentTypes/`) |
+| Порты serial, скорость, пути устройств (Electron) | `viwa_electron/docs/SERIAL_PORTS_IMPLEMENTATION.md` |
+| Протокол контроллера (Electron) | `viwa_electron/src/main/hardware/controller/` (`ControllerProtocol.ts` и смежное) |
+| Сервис терминала (Electron) | `viwa_electron/src/main/services/payment/PaymentTerminalService.ts` |
+| Модули оплаты (Electron) | `viwa_electron/src/main/modules/payment/` (`index.ts`, `service.ts`, `manager.ts`, `preparing/`, `paymentTypes/`) |
 
 **Android (текущий стек):**
 
@@ -36,7 +36,7 @@
 | Параметры порта (9600 8N1, путь по умолчанию) | `wiva-android/app/src/main/java/com/wiva/android/hardware/controller/ControllerPortSettings.kt` |
 | Транспорт (сейчас — лог TX, без входящих байт с железа) | `LoggingStubControllerSerialTransport.kt`, контракт `ControllerSerialTransport.kt` |
 | DI транспорта | `wiva-android/app/src/main/java/com/wiva/android/di/ControllerModule.kt` |
-| Мок ↔ реал | `JsonStoreKeys.USE_MOCK_CONTROLLER` (`useMockController`); UI: `ServiceViewModel`, `WivaServiceMenuTabContent`; шлюз: `DelegatingControllerGateway` → `MockControllerGateway` / `RealControllerGateway` |
+| Мок ↔ реал | `JsonStoreKeys.USE_MOCK_CONTROLLER` (`useMockController`); UI: `ServiceViewModel`, `ViwaServiceMenuTabContent`; шлюз: `DelegatingControllerGateway` → `MockControllerGateway` / `RealControllerGateway` |
 
 ---
 
@@ -45,7 +45,7 @@
 ### Подключение и порт / Connection and port
 
 1. Контроллер подключён согласно регламенту стенда (кабель, питание, заземление — по чеклисту инженера).
-2. **Порт и скорость** согласованы с эталоном: см. **`wiva_electron/docs/SERIAL_PORTS_IMPLEMENTATION.md`** и **§2** основного ТЗ (`TZ_WIVA_ANDROID_FROM_ELECTRON.md` — строка таблицы «Протокол контроллера»).
+2. **Порт и скорость** согласованы с эталоном: см. **`viwa_electron/docs/SERIAL_PORTS_IMPLEMENTATION.md`** и **§2** основного ТЗ (`TZ_WIVA_ANDROID_FROM_ELECTRON.md` — строка таблицы «Протокол контроллера»).
 3. Значения в приложении (путь устройства, baud) проверены против `ControllerPortSettings` и настроек сервисного меню (если вынесены).
 
 | Шаг | Выполнено ☐ | Заметки |
@@ -91,7 +91,7 @@
 ### Настройка и эталон
 
 - Конфигурация терминала на стенде — по **внутреннему регламенту Wiva** и документации **wiva_electron** для целевого типа терминала.
-- **Эталон кода:** `wiva_electron/src/main/services/payment/PaymentTerminalService.ts` и каталог `wiva_electron/src/main/modules/payment/` (`index.ts`, `service.ts`, `manager.ts`, `preparing/`, `paymentTypes/`).
+- **Эталон кода:** `viwa_electron/src/main/services/payment/PaymentTerminalService.ts` и каталог `viwa_electron/src/main/modules/payment/` (`index.ts`, `service.ts`, `manager.ts`, `preparing/`, `paymentTypes/`).
 - Проверка связи приложения с терминалом — **по регламенту стенда** и документации Electron (в чеклисте без привязки к конкретному драйверу Android).
 
 | Поле | Значение |

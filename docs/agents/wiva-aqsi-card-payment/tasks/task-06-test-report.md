@@ -6,7 +6,7 @@
 
 ```bat
 cd c:\wiva\wiva-android
-gradlew.bat :app:assembleDebug :app:testDebugUnitTest --tests "com.wiva.android.ui.screens.service.tabs.*"
+gradlew.bat :app:assembleDebug :app:testDebugUnitTest --tests "com.viwa.android.ui.screens.service.tabs.*"
 ```
 
 ## Результат
@@ -14,15 +14,15 @@ gradlew.bat :app:assembleDebug :app:testDebugUnitTest --tests "com.wiva.android.
 | Проверка | Статус |
 |----------|--------|
 | `:app:assembleDebug` | BUILD SUCCESSFUL |
-| `:app:testDebugUnitTest` (фильтр `com.wiva.android.ui.screens.service.tabs.*`) | BUILD SUCCESSFUL |
+| `:app:testDebugUnitTest` (фильтр `com.viwa.android.ui.screens.service.tabs.*`) | BUILD SUCCESSFUL |
 
 ## Покрытие (пакет `ui.screens.service.tabs`, тесты)
 
 | Класс теста | Сценарии |
 |-------------|----------|
 | `CardPaymentServiceMenuPolicyTest` | Кнопка теста 1 коп.: скрыта при `isDebugBuild=false`, видна при `true`. |
-| `WivaCardPaymentMethodViewModelTest` | Загрузка AQSI из репозитория; выбор PAX вызывает сохранение PAX; выбор AQSI (`selectAqsi`) вызывает сохранение AQSI и обновление UI. |
-| `WivaAqsiSettingsViewModelTest` | Пустой/пробельный host: Save и TCP-тест не вызывают `saveConfig` / не сохраняют; Save по валидным полям → `lastSaved`; TCP успех → баннер OK; TCP failure → ошибка без падения; **перед `testTcpConnection`** репозиторий получает `saveConfig`, затем `testTcpConnection` (порядок зафиксирован в fake). |
+| `ViwaCardPaymentMethodViewModelTest` | Загрузка AQSI из репозитория; выбор PAX вызывает сохранение PAX; выбор AQSI (`selectAqsi`) вызывает сохранение AQSI и обновление UI. |
+| `ViwaAqsiSettingsViewModelTest` | Пустой/пробельный host: Save и TCP-тест не вызывают `saveConfig` / не сохраняют; Save по валидным полям → `lastSaved`; TCP успех → баннер OK; TCP failure → ошибка без падения; **перед `testTcpConnection`** репозиторий получает `saveConfig`, затем `testTcpConnection` (порядок зафиксирован в fake). |
 | `WivaAqsiDiagnosticsViewModelTest` | Метка метода; сводка holder после предзаполнения; чтение полей после «как с заказа» (snapshot decline). |
 
 ## Версия APK (build.gradle.kts)

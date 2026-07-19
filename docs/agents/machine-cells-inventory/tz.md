@@ -482,7 +482,7 @@ Side-effect PATCH cells: если машина ONLINE → push `cells.snapshot`.
 23. **Volume tab:** edit → `cells.volume.report`.
 24. **Inventory tab:** edit product/prices → `cells.content.report` (с volumes).
 25. **Snapshot apply:** при `cells.snapshot` (downlink после PATCH или reconnect) локальное состояние **полностью заменяется** — без merge с локальным edit-in-progress.
-26. **tasteMediaKey:** продукт в ячейке корректно мапится на PNG/видео из allowlist (`WivaElectronAssets` канон).
+26. **tasteMediaKey:** продукт в ячейке корректно мапится на PNG/видео из allowlist (`ViwaElectronAssets` канон).
 27. **Customer drink list:** customer UI (DrinkContainer / карточки напитков) строится из `telemetryCellsSnapshot` / `cells.snapshot`, **не** из legacy merge-inventory path.
 28. **Legacy isolation:** при `useMvpProtocol=true` Shaker cell topics остаются no-op; legacy path не ломается за flag `false`.
 

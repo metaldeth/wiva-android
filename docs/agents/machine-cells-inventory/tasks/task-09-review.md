@@ -22,7 +22,7 @@
 | 3 | Content uplink: без denormalized полей + volumes | ✅ | `encodeContentReportPayload` (codec) + `onLocalContentChange`; test `inventory edit produces content report without denormalized fields` |
 | 4 | Downlink `cells.snapshot` → full replace incl. `products[]` | ✅ | `onCellsSnapshot` → `repository.replaceSnapshot`; tests snapshot downlink + snapshot during local edit |
 | 5 | Reconnect: `clientSchemaHash` / `clientContentRevision` из persisted snapshot | ✅ | `encodeSchemaReportPayload` via codec; test second schema report |
-| 6 | Legacy gate: MVP path vs skip coordinator | ✅ (partial) | `SimpleTelemetryCoordinator` init L43–62: `cachedUseMvpProtocol`; test legacy gate false path; `WivaTelemetryService.skipLegacyTopic` L428–434 — pre-existing, не новый код task-09 |
+| 6 | Legacy gate: MVP path vs skip coordinator | ✅ (partial) | `SimpleTelemetryCoordinator` init L43–62: `cachedUseMvpProtocol`; test legacy gate false path; `ViwaTelemetryService.skipLegacyTopic` L428–434 — pre-existing, не новый код task-09 |
 | 7 | OQ-9: optional `cells.content.report` после успешного schema | ✅ impl / ⚠️ test | `maybeSendInitialContentReport` L96–101, вызов `.onSuccess { maybeSendInitialContentReport(snapshot) }` L93; **нет** `coVerify` content report в post-hello тесте |
 | 8 | C-3: persist `schemaHash` из ack для следующего hello | ✅ | `onSchemaAck` → `mergeRevisionFields`; test `schema ack persists server schemaHash` |
 | 9 | WS wiring: hello / snapshot / ack dispatch | ✅ | `MvpTelemetryWebSocketManager.onHello` L239–242, `onCellsSnapshot` L258–265, `onAck` L245–256 |
@@ -62,7 +62,7 @@
 ### Legacy isolation
 
 - `useMvpProtocol=false` → handler не вызывает coordinator (unit test).
-- `useMvpProtocol=true` → legacy Shaker topics no-op через `WivaTelemetryService.skipLegacyTopic` (не изменялся в task-09; поведение из FEATURE doc).
+- `useMvpProtocol=true` → legacy Shaker topics no-op через `ViwaTelemetryService.skipLegacyTopic` (не изменялся в task-09; поведение из FEATURE doc).
 
 ---
 
@@ -79,7 +79,7 @@ _Нет._
 | ID | Topic | Detail |
 |----|-------|--------|
 | M-1 | UUID не персистятся до snapshot downlink | `sendSchemaReport` вызывает `uuidAllocator.allocateForPhysicalCells`, но **не** сохраняет выделенные uuid в `TelemetryCellsRepository`. На пустом store каждый `onWebSocketHello()` может сгенерировать **новые** uuid (нарушение OQ-5 до первого snapshot). MVP mitigates: server ack + snapshot downlink обычно следуют сразу; при обрыве между hello и snapshot — риск duplicate reconcile на сервере. Рекомендация: после allocate merge minimal structural cells в snapshot (uuid, cellNumber, maxVolume) перед send или сразу после успешного schema ack. |
-| M-2 | Uplink API без production callers | `onLocalVolumeChange` / `onLocalContentChange` существуют только в coordinator + tests; grep `app/src/main` — нет вызовов из `WivaTelemetryService` / ViewModel. Ожидаемо для M6 part 2 (orchestration layer); wiring в volume/import path — task-10 или follow-up. Зафиксировать в plan, чтобы не считать UC-3/UC-4 закрытыми end-to-end. |
+| M-2 | Uplink API без production callers | `onLocalVolumeChange` / `onLocalContentChange` существуют только в coordinator + tests; grep `app/src/main` — нет вызовов из `ViwaTelemetryService` / ViewModel. Ожидаемо для M6 part 2 (orchestration layer); wiring в volume/import path — task-10 или follow-up. Зафиксировать в plan, чтобы не считать UC-3/UC-4 закрытыми end-to-end. |
 | M-3 | `schemaHash` на устройстве не вычисляется | Carry-over task-08 M-3: coordinator не передаёт локальный `schemaHash` в uplink payload (только `clientSchemaHash` из store). Сервер вычисляет canonical hash и возвращает в ack — для MVP достаточно; golden vector cross-platform — task-11 / hardening. |
 | M-4 | OQ-9 без dedicated unit test | `maybeSendInitialContentReport` реализован, но post-hello тест мокает `cells.content.report` и **не** проверяет `coVerify` при snapshot с `productUuid`/volume. Добавить тест: schema success + reportable snapshot → content report; schema failure → content report не шлётся. |
 | M-5 | Legacy gate test — только negative path | Test case 6 в task-09 описывает «useMvpProtocol=true → legacy handlers not invoked»; реализован только `false → coordinator skip`. Positive path coordinator + `skipLegacyTopic` — без unit test (приемлемо: Shaker gate pre-existing). |
@@ -92,7 +92,7 @@ _Нет._
 |----|-------|--------|
 | L-1 | Concurrent handler jobs | `onHello`, `onCellsSnapshot`, `onSchemaAck` запускаются в `appScope.launch` без serial mutex. На reconnect возможен overlap schema uplink + snapshot downlink — architecture допускает оба порядка; MVP OK. |
 | L-2 | `onAck` routing по `schemaHash` key | Любой ack с полем `schemaHash` триггерит `onSchemaAck`. Сейчас только schema ack несёт это поле — OK; при расширении протокола — явный type/correlation filter. |
-| L-3 | `cachedUseMvpProtocol` @Volatile | Runtime смена config без reconnect может desync handler gate и `WivaTelemetryService.isMvpProtocolActive()` — edge case настроек; не блокер MVP. |
+| L-3 | `cachedUseMvpProtocol` @Volatile | Runtime смена config без reconnect может desync handler gate и `ViwaTelemetryService.isMvpProtocolActive()` — edge case настроек; не блокер MVP. |
 | L-4 | Instrumented / dev WS | Не запускалось (test report) — риск wire incompatibility только E2E (task-12). |
 | L-5 | Circular DI | `TelemetryCellsSyncCoordinator` → `MvpTelemetryWebSocketManager`; handler wiring runtime через `SimpleTelemetryCoordinator.init` — compile-time цикла нет; Hilt `@Singleton` порядок OK. |
 | L-6 | `applyVolumeUpdatesToSnapshot` no-op на null snapshot | `getSnapshot() ?: return` — volume change до первого snapshot silently ignored; согласовано с пустым store, документировать для callers. |

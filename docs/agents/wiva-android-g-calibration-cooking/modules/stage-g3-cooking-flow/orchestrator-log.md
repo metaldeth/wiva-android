@@ -8,5 +8,5 @@
 
 | Шаг | Результат |
 |-----|-----------|
-| Реализация | `PreparingManager`, `WivaControllerStateService`, доработка `WivaDrinkSelectionService`, репозиторий по `tasteId`, UI, Hilt |
+| Реализация | `PreparingManager`, `ViwaControllerStateService`, доработка `ViwaDrinkSelectionService`, репозиторий по `tasteId`, UI, Hilt |
 | Сборка | `gradlew.bat assembleDebug`, `:app:testDebugUnitTest` — OK |

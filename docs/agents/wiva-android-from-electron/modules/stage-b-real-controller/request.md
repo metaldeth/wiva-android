@@ -1,6 +1,6 @@
 # Запрос сессии: stage-b-real-controller
 
-**sessionId:** `wiva-android-from-electron/modules/stage-b-real-controller`
+**sessionId:** `viwa-android-from-electron/modules/stage-b-real-controller`
 
 **Параметры этапа:** `3 | stage-b-real-controller | B1, B2, B4`
 

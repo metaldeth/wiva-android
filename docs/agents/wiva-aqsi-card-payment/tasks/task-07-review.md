@@ -18,7 +18,7 @@
 
 Пользователь подтвердил:
 
-- `gradlew.bat :app:testDebugUnitTest --tests com.wiva.android.data.payment.aqsi.AqsiRepositoryImplTest` — SUCCESS  
+- `gradlew.bat :app:testDebugUnitTest --tests com.viwa.android.data.payment.aqsi.AqsiRepositoryImplTest` — SUCCESS  
 - `gradlew.bat assembleDebug` — SUCCESS  
 
 Полный контекст task-07 и прогон всего пакета — в `task-07-test-report.md`.

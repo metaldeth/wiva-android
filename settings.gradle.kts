@@ -14,5 +14,5 @@ dependencyResolutionManagement {
         maven("https://jitpack.io")
     }
 }
-rootProject.name = "wiva-android"
+rootProject.name = "viwa-android"
 include(":app")

@@ -2,7 +2,7 @@
 
 **ПАРАМЕТРЫ ЭТАПА:** `1 | stage-a-carcass-ota | A1–A4`
 
-**sessionId (относительно `wiva-android/docs/agents/`):** `wiva-android-from-electron/modules/stage-a-carcass-ota`
+**sessionId (относительно `wiva-android/docs/agents/`):** `viwa-android-from-electron/modules/stage-a-carcass-ota`
 
 **Режим:** complex (`orchestrator-agents`).
 

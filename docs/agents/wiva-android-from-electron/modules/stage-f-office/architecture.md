@@ -15,19 +15,19 @@
 
 **Предпочтительно:** `wiva-android/docs/` — отдельный файл-шаблон (например `OFFICE_HARDWARE_CHECKLIST_TEMPLATE.md` или согласованное имя в рамках PR), чтобы документ жил рядом с остальной продуктовой документацией Android.
 
-**Допустимо по ТЗ:** дублирование или единственная копия в `wiva-android/docs/agents/wiva-android-from-electron/modules/stage-f-office/`, если команда хочет держать шаблон только рядом с агентским треком. Архитектурная рекомендация — **primary в `wiva-android/docs/`**, из модуля — короткая ссылка.
+**Допустимо по ТЗ:** дублирование или единственная копия в `wiva-android/docs/agents/viwa-android-from-electron/modules/stage-f-office/`, если команда хочет держать шаблон только рядом с агентским треком. Архитектурная рекомендация — **primary в `wiva-android/docs/`**, из модуля — короткая ссылка.
 
 ## Интерфейсы и контракты
 
 ### Эталон serial / протокол (Electron)
 
-- **`wiva_electron/docs/SERIAL_PORTS_IMPLEMENTATION.md`** — скорость, порты, соглашения по путям устройств; обязательная ссылка из чеклиста и инструкции для стенда.
-- Протокол и команды: `wiva_electron/src/main/hardware/controller/ControllerProtocol.ts` и связанные модули под `wiva_electron/src/main/hardware/controller/**` (в т.ч. `RequestCommands` / `ResponseCommands` по терминологии ТЗ).
+- **`viwa_electron/docs/SERIAL_PORTS_IMPLEMENTATION.md`** — скорость, порты, соглашения по путям устройств; обязательная ссылка из чеклиста и инструкции для стенда.
+- Протокол и команды: `viwa_electron/src/main/hardware/controller/ControllerProtocol.ts` и связанные модули под `viwa_electron/src/main/hardware/controller/**` (в т.ч. `RequestCommands` / `ResponseCommands` по терминологии ТЗ).
 
 ### Платёжный терминал (Electron)
 
-- **`wiva_electron/src/main/services/payment/PaymentTerminalService.ts`**
-- Потоки и типы: `wiva_electron/src/main/modules/payment/` (`index.ts`, `service.ts`, `manager.ts`, `preparing/`, `paymentTypes/`).
+- **`viwa_electron/src/main/services/payment/PaymentTerminalService.ts`**
+- Потоки и типы: `viwa_electron/src/main/modules/payment/` (`index.ts`, `service.ts`, `manager.ts`, `preparing/`, `paymentTypes/`).
 
 ### Android: порты, транспорт, мок vs реал
 
@@ -37,7 +37,7 @@
 | Текущая реализация serial-транспорта (лог TX, без входящих байт с железа) | `wiva-android/app/src/main/java/com/wiva/android/hardware/controller/LoggingStubControllerSerialTransport.kt` |
 | Контракт транспорта | `wiva-android/app/src/main/java/com/wiva/android/hardware/controller/ControllerSerialTransport.kt` |
 | Привязка транспорта в DI | `wiva-android/app/src/main/java/com/wiva/android/di/ControllerModule.kt` (`LoggingStubControllerSerialTransport` → `ControllerSerialTransport`) |
-| Переключение **мок ↔ реальный шлюз** | Ключ `JsonStoreKeys.USE_MOCK_CONTROLLER` (`useMockController` в хранилище); UI и логика: `ServiceViewModel` / `WivaServiceMenuTabContent` (сервисное меню). Делегирование: `DelegatingControllerGateway` читает флаг и направляет в `MockControllerGateway` или в ветку «реала» (`RealControllerGateway` + транспорт). |
+| Переключение **мок ↔ реальный шлюз** | Ключ `JsonStoreKeys.USE_MOCK_CONTROLLER` (`useMockController` в хранилище); UI и логика: `ServiceViewModel` / `ViwaServiceMenuTabContent` (сервисное меню). Делегирование: `DelegatingControllerGateway` читает флаг и направляет в `MockControllerGateway` или в ветку «реала» (`RealControllerGateway` + транспорт). |
 
 **Смысл флага:** при **включённом моке** используется мок-транспорт/шлюз; при **выключенном** — цепочка реального шлюза с `ControllerSerialTransport` (сейчас — заглушка с логированием). На стенде F1 для проверки железа мок должен быть **отключён** (как в ТЗ), с пониманием, что физический обмен байтами на Android возможен только после реальной реализации USB/serial, если заглушка ещё не заменена.
 
@@ -65,7 +65,7 @@
 
 ## Формат `summary.md`: репозиторий vs онсайт
 
-Рекомендуемая структура файла `wiva-android/docs/agents/wiva-android-from-electron/modules/stage-f-office/summary.md`:
+Рекомендуемая структура файла `wiva-android/docs/agents/viwa-android-from-electron/modules/stage-f-office/summary.md`:
 
 1. **Сделано в репозитории** — перечень закрытых строк из колонки «Репо» таблиц приёмки (F1-R1, F1-R2, F2-R1, общие пункты про шаблоны и ссылки). Отметка «готово к стенду», если онсайт ещё не выполнялся.
 2. **Подтверждено на стенде** — дата проведения, исполнитель; для каждого F1-O*, F2-O* — да/нет/не применимо; **ссылка** на заполненный подписанный чеклист (путь в репо или URI/номер документа во внешнем архиве).

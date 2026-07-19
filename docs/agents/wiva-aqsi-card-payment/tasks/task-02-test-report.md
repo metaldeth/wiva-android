@@ -10,8 +10,8 @@
 | Команда | Результат |
 |---------|-----------|
 | `gradlew.bat assembleDebug` | `BUILD SUCCESSFUL` |
-| `gradlew.bat :app:testDebugUnitTest --tests "com.wiva.android.domain.model.AqsiConfigTest"` | зелёные |
-| `gradlew.bat :app:testDebugUnitTest --tests "com.wiva.android.domain.model.AqsiPaymentResultTest"` | зелёные |
+| `gradlew.bat :app:testDebugUnitTest --tests "com.viwa.android.domain.model.AqsiConfigTest"` | зелёные |
+| `gradlew.bat :app:testDebugUnitTest --tests "com.viwa.android.domain.model.AqsiPaymentResultTest"` | зелёные |
 
 При последнем прогоне обе группы указаны одной Gradle-командой с двумя `--tests`.
 

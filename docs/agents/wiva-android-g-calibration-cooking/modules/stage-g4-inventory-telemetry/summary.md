@@ -9,13 +9,13 @@
 | Область | Файлы / изменения |
 |--------|---------------------|
 | Списание после готовки | `InventoryService`, `InventoryWriteOffMath` (формула как electron `applyInventoryWriteOff`) |
-| Репозиторий | `MachineInventoryRepository`: `deductContainerVolume`, `applyCellVolumes`, `findContainerByNumber`, `findDrinkContainerByProductId`; в `MachineInventoryRepositoryImpl` — `Lazy<WivaTelemetryService>` для вызова `sendCellVolumeImportFromConfig` после ручных объёмов (без цикла DI с `WivaTelemetryService`) |
+| Репозиторий | `MachineInventoryRepository`: `deductContainerVolume`, `applyCellVolumes`, `findContainerByNumber`, `findDrinkContainerByProductId`; в `MachineInventoryRepositoryImpl` — `Lazy<ViwaTelemetryService>` для вызова `sendCellVolumeImportFromConfig` после ручных объёмов (без цикла DI с `ViwaTelemetryService`) |
 | Счётчик воды | `JsonStoreKeys.WATER_USAGE_ML`, запись в `InventoryService.applyWriteOff` |
 | Preparing | `PreparingManager`: вместо заглушки — `inventoryService.applyWriteOff` + `telemetryService.sendSaleImportTopic` после `DrinkPreparingSuccess`; параметры `saleTotalPriceRub` / `salePayMethod` |
 | Клиент | `DrinkListViewModel`: передача суммы и способа оплаты в `prepareDrink` для платного флоу |
-| Телеметрия | `SaleImportItem` (+ `totalChargedRub`), перегрузка `WivaTelemetryService.sendSaleImportTopic(List<SaleImportItem>)` с маппингом в `SaleImportItemJson` и предупреждением при offline |
+| Телеметрия | `SaleImportItem` (+ `totalChargedRub`), перегрузка `ViwaTelemetryService.sendSaleImportTopic(List<SaleImportItem>)` с маппингом в `SaleImportItemJson` и предупреждением при offline |
 | DI | Удалён `InventoryWriteOffCallback`; `PreparingModule` только для `PreparingStateCallback` |
-| Сервисное меню | Вкладка «Остатки» (`WivaInventoryVolumesTab`): список ячеек, ввод объёма, «Сохранить» → `applyCellVolumes` |
+| Сервисное меню | Вкладка «Остатки» (`ViwaInventoryVolumesTab`): список ячеек, ввод объёма, «Сохранить» → `applyCellVolumes` |
 | Тесты | `InventoryWriteOffMathTest` — расчёт product/water и концентрации |
 
 ## Артефакты сессии

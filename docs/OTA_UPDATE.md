@@ -1,6 +1,6 @@
 # OTA-обновления wiva-android
 
-Кратко: сервер отдаёт `version.json` и APK из каталога `wiva-android/release/`. Имя файла релиза: **`wiva-android-{versionName}-release.apk`** (совпадает с `outputFileName` в `app/build.gradle.kts`).
+Кратко: сервер отдаёт `version.json` и APK из каталога `wiva-android/release/`. Имя файла релиза: **`viwa-android-{versionName}-release.apk`** (совпадает с `outputFileName` в `app/build.gradle.kts`).
 
 ## Прод: Android-сервер
 
@@ -64,6 +64,6 @@ ANDROID_UPDATE_BASE_URL=http://dev.ishaker.ru:9082
 gradlew.bat assembleRelease
 ```
 
-APK: `app/build/outputs/apk/release/wiva-android-26.04.01.01-release.apk` (версия из `versionName`). Скопируйте в `release/` для раздачи.
+APK: `app/build/outputs/apk/release/viwa-android-26.04.01.01-release.apk` (версия из `versionName`). Скопируйте в `release/` для раздачи.
 
 Нужен keystore: `signing/release.jks` (как в legacy Android kiosk; пароли через `STORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` или env STORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD).

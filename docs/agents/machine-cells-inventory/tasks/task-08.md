@@ -15,7 +15,7 @@ M6 (часть 1) — snapshot store, types, codec unit tests.
   - `TelemetryCellsSnapshot` — schemaHash, contentRevision, products[], cells[], savedAtEpochMs.
 - `JsonStoreKeys.TELEMETRY_CELLS_SNAPSHOT = "telemetryCellsSnapshot"`.
 - `TelemetryCellsRepository` — atomic read/write/replace Flow.
-- `TasteMediaKeyCatalog` — 14 keys aligned with `WivaElectronAssets.MEDIA_KEY_TO_PNG`.
+- `TasteMediaKeyCatalog` — 14 keys aligned with `ViwaElectronAssets.MEDIA_KEY_TO_PNG`.
 - `CellUuidAllocator` — stable uuid generation on first schema init (OQ-5).
 - `PhysicalCellSchemaProvider` — source of N cells + maxVolume (mock/config).
 - **`TelemetryCellsMessageCodec`:**

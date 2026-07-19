@@ -1,7 +1,7 @@
 # Архитектура: `stage-b-mock-first` (B3 — MockController / шлюз)
 
-**Проект:** `wiva-android`, пакет `com.wiva.android` (Android, Kotlin, Compose, Hilt).  
-**ТЗ:** `docs/agents/wiva-android-from-electron/modules/stage-b-mock-first/tz.md`.
+**Проект:** `wiva-android`, пакет `com.viwa.android` (Android, Kotlin, Compose, Hilt).  
+**ТЗ:** `docs/agents/viwa-android-from-electron/modules/stage-b-mock-first/tz.md`.
 
 ---
 
@@ -24,12 +24,12 @@
 
 ### Эталон команд в Electron (для зеркалирования enum)
 
-- Исходящие: `wiva_electron/src/main/hardware/controller/commands/RequestCommands.ts` — `export enum RequestCommand`.
-- Входящие: `wiva_electron/src/main/hardware/controller/commands/ResponseCommands.ts` — `export enum ResponseCommand`.
+- Исходящие: `viwa_electron/src/main/hardware/controller/commands/RequestCommands.ts` — `export enum RequestCommand`.
+- Входящие: `viwa_electron/src/main/hardware/controller/commands/ResponseCommands.ts` — `export enum ResponseCommand`.
 
 ### Эталон поведения мока
 
-- `wiva_electron/src/main/hardware/controller/__mocks__/MockControllerConnection.ts` — журнал `sentCommands`, `sendCommand`, `simulateResponse` через `events.emit`.
+- `viwa_electron/src/main/hardware/controller/__mocks__/MockControllerConnection.ts` — журнал `sentCommands`, `sendCommand`, `simulateResponse` через `events.emit`.
 
 ### Публичный контракт Android (`ControllerGateway`)
 
@@ -62,7 +62,7 @@
 | **Событие входящего ответа** | Упаковка `ResponseCommand` + байтовое тело для эмиссии в `SharedFlow`. |
 | **Конфиг** | Строковое значение по ключу `JsonStoreKeys.USE_MOCK_CONTROLLER` (`"true"` / `"false"`). |
 
-Пакет размещения: логично `com.wiva.android.hardware.controller` или `com.wiva.android.domain.controller` для enum и шлюза; `data` не обязателен для чистых enum, если они не тянут платформу.
+Пакет размещения: логично `com.viwa.android.hardware.controller` или `com.viwa.android.domain.controller` для enum и шлюза; `data` не обязателен для чистых enum, если они не тянут платформу.
 
 ---
 
@@ -101,4 +101,4 @@
 
 ---
 
-*Документ архитектуры для `sessionId`: `wiva-android-from-electron/modules/stage-b-mock-first`. Без реализационного кода — только структура и контракты.*
+*Документ архитектуры для `sessionId`: `viwa-android-from-electron/modules/stage-b-mock-first`. Без реализационного кода — только структура и контракты.*

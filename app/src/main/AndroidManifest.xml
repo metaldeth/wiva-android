@@ -12,12 +12,12 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <application
-        android:name=".WivaApplication"
+        android:name=".ViwaApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
-        android:theme="@style/Theme.Wiva.Kiosk"
+        android:theme="@style/Theme.Viwa.Kiosk"
         android:usesCleartextTraffic="true">
 
         <activity

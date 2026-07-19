@@ -1,6 +1,6 @@
 # План: `stage-b-mock-first` (B3 — MockController / шлюз)
 
-**Сессия:** `wiva-android-from-electron/modules/stage-b-mock-first`  
+**Сессия:** `viwa-android-from-electron/modules/stage-b-mock-first`  
 **ТЗ:** [tz.md](./tz.md)  
 **Архитектура:** файл `architecture.md` отсутствует; ниже — вывод из ТЗ и кода `wiva-android`.
 
@@ -34,5 +34,5 @@
 ## Ссылки
 
 - Общее ТЗ модуля B: `wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md` (строка B3, §3).
-- Эталон мока: `wiva_electron/src/main/hardware/controller/__mocks__/MockControllerConnection.ts`.
+- Эталон мока: `viwa_electron/src/main/hardware/controller/__mocks__/MockControllerConnection.ts`.
 - Существующий флаг UI: `ServiceViewModel`, `JsonStoreKeys.USE_MOCK_CONTROLLER`.

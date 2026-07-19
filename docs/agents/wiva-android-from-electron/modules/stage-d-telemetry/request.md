@@ -8,6 +8,6 @@
 
 **Правила:** §2 источники (транспорт legacy Android kiosk, семантика wiva_electron), §3 мок контроллера где применимо, §4.1 — вопросы владельцу при неоднозначности.
 
-**sessionId:** `wiva-android-from-electron/modules/stage-d-telemetry`
+**sessionId:** `viwa-android-from-electron/modules/stage-d-telemetry`
 
 **Итог:** `gradlew.bat assembleDebug`, `summary.md` в каталоге модуля.

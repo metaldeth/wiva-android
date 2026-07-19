@@ -6,12 +6,12 @@
 
 ## Scope delivered
 
-- `WivaInventoryVolumesTab`: MVP path → local snapshot + `TelemetryCellsSyncCoordinator.onLocalVolumeChange`; legacy unchanged.
-- `WivaTelemetryInventoryTab`: MVP editable product/prices; product picker from `snapshot.products[]`; `onLocalContentChange`.
+- `ViwaInventoryVolumesTab`: MVP path → local snapshot + `TelemetryCellsSyncCoordinator.onLocalVolumeChange`; legacy unchanged.
+- `ViwaTelemetryInventoryTab`: MVP editable product/prices; product picker from `snapshot.products[]`; `onLocalContentChange`.
 - `ServiceViewModel`: bind `TelemetryCellsRepository.snapshotFlow`; `mvpInventoryRows` / `snapshotProducts`; gate via `telemetryUseMvpProtocol`.
 - `TelemetryCellsSnapshotAdapter`: snapshot → `DrinkContainer` (customer UI).
 - `DrinkListViewModel`: MVP uses adapter + `snapshotFlow`; legacy uses `TELEMETRY_MERGED_INVENTORY`.
-- `WivaElectronAssets`: verified PNG + video asset mapping (`hasPreparingVideoAsset` for unit tests).
+- `ViwaElectronAssets`: verified PNG + video asset mapping (`hasPreparingVideoAsset` for unit tests).
 
 ## Unit tests (TDD)
 
@@ -30,7 +30,7 @@
 
 ```bat
 cd c:\wiva\wiva-android
-gradlew.bat :app:testDebugUnitTest --tests "com.wiva.android.domain.customer.TelemetryCellsSnapshotAdapterTest" --tests "com.wiva.android.domain.model.CellVolumeStatusTest" --tests "com.wiva.android.domain.model.MvpInventorySnapshotMapperTest" --tests "com.wiva.android.ui.screens.customer.DrinkListViewModelMvpInventoryTest"
+gradlew.bat :app:testDebugUnitTest --tests "com.viwa.android.domain.customer.TelemetryCellsSnapshotAdapterTest" --tests "com.viwa.android.domain.model.CellVolumeStatusTest" --tests "com.viwa.android.domain.model.MvpInventorySnapshotMapperTest" --tests "com.viwa.android.ui.screens.customer.DrinkListViewModelMvpInventoryTest"
 ```
 
 **Exit code:** 0
@@ -43,7 +43,7 @@ gradlew.bat :app:testDebugUnitTest --tests "com.wiva.android.domain.customer.Tel
 ## Notes
 
 - M-1 (uuid persist on schema) intentionally not in scope.
-- Service menu tab order unchanged (`WivaServiceMenuStructure.kt` not modified).
+- Service menu tab order unchanged (`ViwaServiceMenuStructure.kt` not modified).
 - Dashboard cells still derived from legacy merge when `useMvpProtocol=false`; MVP dashboard mapping not in task-10 scope.
 
 ## Changed files (production)
@@ -52,10 +52,10 @@ gradlew.bat :app:testDebugUnitTest --tests "com.wiva.android.domain.customer.Tel
 - `app/src/main/java/com/wiva/android/domain/model/MvpInventoryTableRow.kt` (new)
 - `app/src/main/java/com/wiva/android/domain/customer/TelemetryCellsSnapshotAdapter.kt` (new)
 - `app/src/main/java/com/wiva/android/ui/screens/service/ServiceViewModel.kt`
-- `app/src/main/java/com/wiva/android/ui/screens/service/tabs/WivaInventoryVolumesTab.kt`
-- `app/src/main/java/com/wiva/android/ui/screens/service/tabs/WivaTelemetryInventoryTab.kt`
+- `app/src/main/java/com/wiva/android/ui/screens/service/tabs/ViwaInventoryVolumesTab.kt`
+- `app/src/main/java/com/wiva/android/ui/screens/service/tabs/ViwaTelemetryInventoryTab.kt`
 - `app/src/main/java/com/wiva/android/ui/screens/customer/DrinkListViewModel.kt`
-- `app/src/main/java/com/wiva/android/ui/screens/customer/WivaElectronAssets.kt`
+- `app/src/main/java/com/wiva/android/ui/screens/customer/ViwaElectronAssets.kt`
 
 ## Changed files (tests)
 

@@ -11,7 +11,7 @@ import java.io.FileInputStream
 import java.util.Properties
 
 android {
-    namespace = "com.wiva.android"
+    namespace = "com.viwa.android"
     compileSdk = 35
 
     signingConfigs {
@@ -48,13 +48,13 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.wiva.android"
+        applicationId = "com.viwa.android"
         minSdk = 25
         targetSdk = 35
-        versionCode = 176
-        versionName = "26.07.19.02"
+        versionCode = 178
+        versionName = "26.07.19.04"
 
-        testInstrumentationRunner = "com.wiva.android.WivaHiltTestRunner"
+        testInstrumentationRunner = "com.viwa.android.ViwaHiltTestRunner"
 
         val localProps = Properties()
         val localPropsFile = rootProject.file("local.properties")
@@ -63,7 +63,7 @@ android {
         }
         val enrollmentKey =
             localProps.getProperty("telemetry.enrollmentKey")
-                ?: System.getenv("WIVA_TELEMETRY_ENROLLMENT_KEY")
+                ?: System.getenv("VIWA_TELEMETRY_ENROLLMENT_KEY")
                 ?: ""
         buildConfigField("String", "TELEMETRY_ENROLLMENT_KEY", "\"${enrollmentKey.replace("\"", "\\\"")}\"")
     }
@@ -104,7 +104,7 @@ android {
         val variant = this
         outputs.all {
             val output = this as com.android.build.gradle.internal.api.BaseVariantOutputImpl
-            output.outputFileName = "wiva-android-${variant.versionName}-${variant.buildType.name}.apk"
+            output.outputFileName = "viwa-android-${variant.versionName}-${variant.buildType.name}.apk"
         }
     }
 

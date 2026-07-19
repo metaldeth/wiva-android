@@ -1,4 +1,4 @@
-# Лог оркестратора — `wiva-android-from-electron/modules/stage-a-carcass-ota`
+# Лог оркестратора — `viwa-android-from-electron/modules/stage-a-carcass-ota`
 
 ## Параметры запуска
 
@@ -19,11 +19,11 @@
 
 - `gradlew.bat assembleDebug` — успех.
 - `gradlew.bat assembleRelease` — успех.
-- OTA: в `release/` размещён `wiva-android-26.04.01.02-release.apk`; `GET /version.json` против локального `node` с `RELEASE_DIR` = корневой `release/` — ответ 200, JSON с `version`, `url`, `changelog`.
+- OTA: в `release/` размещён `viwa-android-26.04.01.02-release.apk`; `GET /version.json` против локального `node` с `RELEASE_DIR` = корневой `release/` — ответ 200, JSON с `version`, `url`, `changelog`.
 
 ### Вопросы владельцу (§4.1)
 
-- Не блокировали этап: `applicationId` зафиксирован как `com.wiva.android` (как в ТЗ §7 до уточнения). При смене — обновить OTA-имена APK, манифест и документацию.
+- Не блокировали этап: `applicationId` зафиксирован как `com.viwa.android` (как в ТЗ §7 до уточнения). При смене — обновить OTA-имена APK, манифест и документацию.
 
 ## Итог
 

@@ -9,22 +9,22 @@ M6 (часть 3) — UI inventory/volumes + drink list adapter.
 
 ## Что сделать
 
-- Refactor **`WivaInventoryVolumesTab`:** edit volume → local snapshot → coordinator volume report (MVP path).
-- Refactor **`WivaTelemetryInventoryTab`:** product picker from **local** `snapshot.products[]` (not REST); edit product/prices → content report.
+- Refactor **`ViwaInventoryVolumesTab`:** edit volume → local snapshot → coordinator volume report (MVP path).
+- Refactor **`ViwaTelemetryInventoryTab`:** product picker from **local** `snapshot.products[]` (not REST); edit product/prices → content report.
 - **`ServiceViewModel`:** bind `TelemetryCellsRepository` Flow; block/sos indicators §3.1.1; gate legacy vs MVP inventory source via `useMvpProtocol`.
 - **`TelemetryCellsSnapshotAdapter`:** map snapshot cells → `DrinkContainer` for customer UI.
 - **`DrinkListViewModel`:** when `useMvpProtocol=true` use adapter; when false keep legacy merge path unchanged.
-- **`WivaElectronAssets`:** resolve PNG/video from cell `tasteMediaKey` (existing mapping).
+- **`ViwaElectronAssets`:** resolve PNG/video from cell `tasteMediaKey` (existing mapping).
 - Service menu structure unchanged (AGENTS.md §Сервисное меню — порядок вкладок).
 
 ## Точки изменения
 
-- `app/src/main/java/com/wiva/android/ui/screens/service/tabs/WivaInventoryVolumesTab.kt`
-- `app/src/main/java/com/wiva/android/ui/screens/service/tabs/WivaTelemetryInventoryTab.kt`
+- `app/src/main/java/com/wiva/android/ui/screens/service/tabs/ViwaInventoryVolumesTab.kt`
+- `app/src/main/java/com/wiva/android/ui/screens/service/tabs/ViwaTelemetryInventoryTab.kt`
 - `app/src/main/java/com/wiva/android/ui/screens/service/ServiceViewModel.kt` (or ServiceScreen VM)
 - `app/src/main/java/com/wiva/android/domain/customer/TelemetryCellsSnapshotAdapter.kt` (новый)
 - `app/src/main/java/com/wiva/android/ui/screens/customer/DrinkListViewModel.kt`
-- `app/src/main/java/com/wiva/android/ui/screens/customer/WivaElectronAssets.kt` (verify only)
+- `app/src/main/java/com/wiva/android/ui/screens/customer/ViwaElectronAssets.kt` (verify only)
 
 ## Тест-кейсы (TDD обязательны)
 

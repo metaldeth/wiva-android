@@ -2,7 +2,7 @@
 
 
 
-См. также сервер: `c:\wiva\wiva-telemetry\AGENTS.md`, enrollment key в `c:\wiva\wiva-telemetry\.env.example`.
+См. также сервер: `c:\viwa\viwa-telemetry\AGENTS.md`, deploy runbook `c:\viwa\viwa-telemetry\docs\deployment\server.md` (SSH **`viwa-server`**), enrollment key в `c:\viwa\viwa-telemetry\.env.example`.
 
 
 
@@ -20,7 +20,7 @@
 
 | `local.properties` | `telemetry.enrollmentKey` | `telemetry.enrollmentKey=dev-enrollment-key-change-me` |
 
-| переменная окружения | `WIVA_TELEMETRY_ENROLLMENT_KEY` | см. PowerShell ниже |
+| переменная окружения | `VIWA_TELEMETRY_ENROLLMENT_KEY` | см. PowerShell ниже |
 
 
 
@@ -36,7 +36,7 @@
 
 # Одна сессия терминала
 
-$env:WIVA_TELEMETRY_ENROLLMENT_KEY = "dev-enrollment-key-change-me"
+$env:VIWA_TELEMETRY_ENROLLMENT_KEY = "dev-enrollment-key-change-me"
 
 .\gradlew.bat assembleDebug
 
@@ -44,11 +44,11 @@ $env:WIVA_TELEMETRY_ENROLLMENT_KEY = "dev-enrollment-key-change-me"
 
 
 
-Постоянно (пользователь): `[Environment]::SetEnvironmentVariable("WIVA_TELEMETRY_ENROLLMENT_KEY", "...", "User")` — затем новый терминал.
+Постоянно (пользователь): `[Environment]::SetEnvironmentVariable("VIWA_TELEMETRY_ENROLLMENT_KEY", "...", "User")` — затем новый терминал.
 
 
 
-CMD (legacy): `set WIVA_TELEMETRY_ENROLLMENT_KEY=...`
+CMD (legacy): `set VIWA_TELEMETRY_ENROLLMENT_KEY=...`
 
 
 
@@ -80,13 +80,13 @@ CMD (legacy): `set WIVA_TELEMETRY_ENROLLMENT_KEY=...`
 
 {
 
-  "type": "WIVA_TELEMETRY_REGISTRATION",
+  "type": "VIWA_TELEMETRY_REGISTRATION",
 
   "version": 1,
 
   "registrationKey": "REG-0123456789AB",
 
-  "serialNumber": "WIVA-000004",
+  "serialNumber": "VIWA-000004",
 
   "apiUrl": "https://194.67.74.147"
 
@@ -132,7 +132,7 @@ CMD (legacy): `set WIVA_TELEMETRY_ENROLLMENT_KEY=...`
 
 
 
-### Миграция WIVA-000004
+### Миграция VIWA-000004
 
 
 
@@ -154,7 +154,7 @@ CMD (legacy): `set WIVA_TELEMETRY_ENROLLMENT_KEY=...`
 
 - Тело (опционально): `{ "installationId": "<uuid>" }`.
 
-- Ответ `201`: `{ "serialNumber": "WIVA-000001", "reservationToken": "…", "expiresAt": "<ISO8601>" }`.
+- Ответ `201`: `{ "serialNumber": "VIWA-000001", "reservationToken": "…", "expiresAt": "<ISO8601>" }`.
 
 - TTL резерва: **15 минут**; для enroll с зарезервированным serial нужен тот же `reservationToken`.
 
@@ -182,7 +182,7 @@ CMD (legacy): `set WIVA_TELEMETRY_ENROLLMENT_KEY=...`
 
   "machineId": "<uuid>",
 
-  "serialNumber": "WIVA-000001",
+  "serialNumber": "VIWA-000001",
 
   "installationId": "<uuid>"
 
@@ -307,7 +307,7 @@ Nest возвращает вложенный объект в `message`:
 
 
 
-Сервисное меню и экран **Телеметрия → Подключение** помечены стабильными `testTag` для ADB/UIAutomator smoke. На корне `ServiceScreen` включено `testTagsAsResourceId` — теги попадают в accessibility tree как synthetic resource id (`com.wiva.android:id/<tag>`).
+Сервисное меню и экран **Телеметрия → Подключение** помечены стабильными `testTag` для ADB/UIAutomator smoke. На корне `ServiceScreen` включено `testTagsAsResourceId` — теги попадают в accessibility tree как synthetic resource id (`com.viwa.android:id/<tag>`).
 
 
 
@@ -330,11 +330,11 @@ Nest возвращает вложенный объект в `message`:
 
 ```python
 
-d(resourceId="com.wiva.android:id/service_group_telemetry").click()
+d(resourceId="com.viwa.android:id/service_group_telemetry").click()
 
-d(resourceId="com.wiva.android:id/service_subtab_telemetry_connection").click()
+d(resourceId="com.viwa.android:id/service_subtab_telemetry_connection").click()
 
-d(resourceId="com.wiva.android:id/telemetry_reserve_serial").click()
+d(resourceId="com.viwa.android:id/telemetry_reserve_serial").click()
 
 ```
 

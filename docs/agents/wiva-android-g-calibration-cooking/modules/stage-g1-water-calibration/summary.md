@@ -11,13 +11,13 @@
 | Модель и ключ | `domain/model/WaterCalibrationData.kt`, `data/local/db/JsonStoreKeys.kt` (`WATER_CALIBRATION`) |
 | Логика | `services/calibration/WaterCalibrationCalculations.kt`, `services/calibration/WaterCalibrationService.kt` |
 | Контроллер | `ControllerHardwareManager.hasActiveConnection()`, `ControllerConstants` (мок: 1 с до BEGIN, 20 мл/с), `ControllerConnection` (исправлено логирование сиропа `body`) |
-| UI | `ui/screens/service/tabs/WivaWaterCalibrationTab.kt`, `WivaServiceMenuTabContent.kt` (вкладка «Калибровка воды») |
+| UI | `ui/screens/service/tabs/ViwaWaterCalibrationTab.kt`, `ViwaServiceMenuTabContent.kt` (вкладка «Калибровка воды») |
 | ViewModel | `ServiceViewModel.kt` — состояние и вызовы сервиса |
 | Тесты | `WaterCalibrationCalculationsTest.kt`, обновлён `ControllerConnectionMockTest` под новые задержки мока |
 
 ## Сопутствующие исправления сборки
 
-Чтобы проект компилировался: `CategoryConfigMachineBuilder` (default `value` у `Entry`), `WivaTelemetryService` (`JsonPrimitive` в `buildJsonObject` для `cellVolumeImportTopic`).
+Чтобы проект компилировался: `CategoryConfigMachineBuilder` (default `value` у `Entry`), `ViwaTelemetryService` (`JsonPrimitive` в `buildJsonObject` для `cellVolumeImportTopic`).
 
 ## DoD
 

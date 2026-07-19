@@ -30,7 +30,7 @@
 
 - **Domain/data (task-08):** `TelemetryCell`, `TelemetryProduct`, `TelemetryCellsSnapshot`, JsonStore repository, `TelemetryCellsMessageCodec`, `TasteMediaKeyCatalog` (14 keys), `CellUuidAllocator`; unit tests 7/7 + 3 PASS.
 - **Sync (task-09):** `TelemetryCellsSyncCoordinator` — post-hello schema report, volume/content uplink, snapshot full replace, reconnect fields, OQ-9 optional content, legacy gate; unit 8/8 PASS.
-- **UI (task-10):** Service menu MVP tabs (`WivaInventoryVolumesTab`, `WivaTelemetryInventoryTab`), `ServiceViewModel` wiring uplink callers, `TelemetryCellsSnapshotAdapter` + `DrinkListViewModel` MVP path, block/sos в service UI; unit 8/8 PASS; **emulator smoke не запускался**.
+- **UI (task-10):** Service menu MVP tabs (`ViwaInventoryVolumesTab`, `ViwaTelemetryInventoryTab`), `ServiceViewModel` wiring uplink callers, `TelemetryCellsSnapshotAdapter` + `DrinkListViewModel` MVP path, block/sos в service UI; unit 8/8 PASS; **emulator smoke не запускался**.
 
 ## Tasks status
 

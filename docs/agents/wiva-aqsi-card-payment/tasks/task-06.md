@@ -8,8 +8,8 @@ UC-3 (выбор метода), UC-4 (настройки и тест TCP), UC-5 
 
 ## Что сделать
 
-- Расширить **`WivaServiceMenuStructure.kt`**: новая группа «Оплата картой» и три подвкладки (Метод; aQsi — Настройки; aQsi — Диагностика) — **только добавление**, существующие группы/вкладки не менять.
-- Расширить **`WivaServiceMenuTabContent.kt`** (или роутер эквивалента): `when` по id → новые composable.
+- Расширить **`ViwaServiceMenuStructure.kt`**: новая группа «Оплата картой» и три подвкладки (Метод; aQsi — Настройки; aQsi — Диагностика) — **только добавление**, существующие группы/вкладки не менять.
+- Расширить **`ViwaServiceMenuTabContent.kt`** (или роутер эквивалента): `when` по id → новые composable.
 - Реализовать UI в пакете **`ui/screens/service/tabs/`** (по AGENTS.md):  
   - **Метод:** выбор PAX vs AQSI, сохранение через `CardPaymentMethodRepository`.  
   - **Настройки:** host, port, timeout; сохранить → `AqsiRepository.saveConfig`; «Тест соединения» → **`testTcpConnection`** (не устаревший `connect()` из черновика request). ViewModel: лог **`AqsiSettings`** при сохранении и результате теста.  
@@ -23,8 +23,8 @@ UC-3 (выбор метода), UC-4 (настройки и тест TCP), UC-5 
 
 ## Точки изменения
 
-- `ui/screens/service/WivaServiceMenuStructure.kt` — добавления
-- `ui/screens/service/WivaServiceMenuTabContent.kt` — новые ветки
+- `ui/screens/service/ViwaServiceMenuStructure.kt` — добавления
+- `ui/screens/service/ViwaServiceMenuTabContent.kt` — новые ветки
 - `ui/screens/service/tabs/*.kt` — новые экраны/ViewModels (имена по конвенции проекта)
 
 **Не трогать:** существующие вкладки Equipment (Платёжник, Контроллер), Integrations > СБП — их файлы и поведение не редактировать.

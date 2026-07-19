@@ -33,7 +33,7 @@
 ### По структуре проекта (AGENTS.md)
 
 - Сборка: `gradlew.bat assembleDebug` (Windows).
-- Новые вкладки сервисного меню: по **`AGENTS.md`** предпочтительный пакет — `.../ui/screens/service/tabs/` (пакет `.../service/tabs/` относительно корня экранов сервиса), по образцу `legacy Android kiosk`, **если это согласуется с текущей структурой каталогов и точками входа** (`WivaServiceMenuStructure.kt`, `ServiceScreen.kt`, `WivaServiceMenuTabContent.kt`). Если вынос во вкладочный подпакет технически конфликтует с уже принятой раскладкой `wiva-android`, допускается размещение в `ui/screens/service/` с явным обоснованием в MR — по умолчанию ориентир **`tabs/`**.
+- Новые вкладки сервисного меню: по **`AGENTS.md`** предпочтительный пакет — `.../ui/screens/service/tabs/` (пакет `.../service/tabs/` относительно корня экранов сервиса), по образцу `legacy Android kiosk`, **если это согласуется с текущей структурой каталогов и точками входа** (`ViwaServiceMenuStructure.kt`, `ServiceScreen.kt`, `ViwaServiceMenuTabContent.kt`). Если вынос во вкладочный подпакет технически конфликтует с уже принятой раскладкой `wiva-android`, допускается размещение в `ui/screens/service/` с явным обоснованием в MR — по умолчанию ориентир **`tabs/`**.
 - Спецификация протокола и пакетов Arcus2 — документация в монорепозитории: `docs/payment-aqsi-pill-t7100/` (в т.ч. `knowledge-base-aqsi-t7100-pdf-extracts.md`).
 
 ### Краткая декомпозиция (для последующих подзадач разработки)

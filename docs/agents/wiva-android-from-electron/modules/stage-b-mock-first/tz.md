@@ -2,7 +2,7 @@
 
 **Проект:** `wiva-android` (Android, Kotlin, Compose, Hilt).  
 **Источник границ этапа:** `wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md` — таблица модуля B, строка **B3**; §3 «Обязательный мок контроллера».  
-**Эталон поведения мока (смысл, не построчный перенос):** `wiva_electron/src/main/hardware/controller/__mocks__/MockControllerConnection.ts` и связанные тесты в том же каталоге.  
+**Эталон поведения мока (смысл, не построчный перенос):** `viwa_electron/src/main/hardware/controller/__mocks__/MockControllerConnection.ts` и связанные тесты в том же каталоге.  
 **Контекст UI:** переключатель «Мок контроллера» уже сохраняется в локальном хранилище конфигурации (ключ `useMockController` / `JsonStoreKeys.USE_MOCK_CONTROLLER`) и отображается на экране сервиса; задача B3 — связать это значение с выбором реализации на уровне DI/рантайма.
 
 **Вне скоупа B3:** реальный serial/USB-транспорт и полный байтовый протокол (B1, B2); цепочка «оплата → контроллер» (B4). Для ветки «реальный контроллер» на этом этапе допускается **заглушка** (no-op / лог «не подключено»), главное — единый контракт и переключение с моком.
@@ -59,4 +59,4 @@
 
 ---
 
-*Артефакт подготовлен субагентом analyst для `sessionId`: `wiva-android-from-electron/modules/stage-b-mock-first`.*
+*Артефакт подготовлен субагентом analyst для `sessionId`: `viwa-android-from-electron/modules/stage-b-mock-first`.*

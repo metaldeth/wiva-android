@@ -17,14 +17,14 @@
 
 | # | Проверка | Статус | Доказательство |
 |---|----------|--------|----------------|
-| 1 | MVP volume edit → local snapshot → coordinator volume report | ✅ | `WivaInventoryVolumesTab` → `saveInventoryVolumes` → `saveInventoryVolumesMvp` → `telemetryCellsSyncCoordinator.onLocalVolumeChange` (`ServiceViewModel.kt` L1106–1147) |
+| 1 | MVP volume edit → local snapshot → coordinator volume report | ✅ | `ViwaInventoryVolumesTab` → `saveInventoryVolumes` → `saveInventoryVolumesMvp` → `telemetryCellsSyncCoordinator.onLocalVolumeChange` (`ServiceViewModel.kt` L1106–1147) |
 | 2 | MVP content edit → coordinator content report | ✅ | `MvpTelemetryInventoryTab` → `saveMvpInventoryContent` → `onLocalContentChange` (L1151–1182); wire через `codec.encodeContentReportPayload` (coordinator L109–112) |
 | 3 | Product picker from `snapshot.products[]`, not REST | ✅ | `snapshotProducts` из `mapMvpInventoryFromSnapshot`; picker в `MvpTelemetryInventoryTab` L217–227; test `MvpInventorySnapshotMapperTest` |
-| 4 | Legacy path unchanged при `useMvpProtocol=false` | ✅ | `WivaInventoryVolumesTab` / `WivaTelemetryInventoryTab` — отдельные Legacy* composables; `observeInventoryTable` legacy branch (L946–954); `DrinkListViewModelMvpInventoryTest.useMvpProtocol_false_*` |
-| 5 | Adapter: tasteMediaKey → DrinkContainer display | ✅ | `TelemetryCellsSnapshotAdapter.toDrinkContainer` L36–52; test `tasteMediaKey_mapsToDrinkContainerDisplayFields` + `WivaElectronAssets` URI/video |
+| 4 | Legacy path unchanged при `useMvpProtocol=false` | ✅ | `ViwaInventoryVolumesTab` / `ViwaTelemetryInventoryTab` — отдельные Legacy* composables; `observeInventoryTable` legacy branch (L946–954); `DrinkListViewModelMvpInventoryTest.useMvpProtocol_false_*` |
+| 5 | Adapter: tasteMediaKey → DrinkContainer display | ✅ | `TelemetryCellsSnapshotAdapter.toDrinkContainer` L36–52; test `tasteMediaKey_mapsToDrinkContainerDisplayFields` + `ViwaElectronAssets` URI/video |
 | 6 | Adapter: null productUuid → empty slot | ✅ | `productUuid ?: return null` L34; test `nullProductUuid_returnsNullDrinkContainer` |
 | 7 | block/sos indicators (§3.1.1) | ✅ (service UI) / ⚠️ (customer) | `resolveCellVolumeStatus` + labels в `MvpVolumeRow` / `MvpInventoryEditRow`; pure tests `CellVolumeStatusTest`. Customer `isUnavailable` — см. M-1 |
-| 8 | Service menu tab order unchanged | ✅ | `WivaServiceMenuStructure.kt` не в diff (test report); gate только внутри существующих tabs |
+| 8 | Service menu tab order unchanged | ✅ | `ViwaServiceMenuStructure.kt` не в diff (test report); gate только внутри существующих tabs |
 | 9 | task-09 M-2 closed (production uplink callers) | ✅ | Grep `app/src/main`: вызовы только из `ServiceViewModel` L1140, L1174 |
 | 10 | TDD cases 1–6 | ✅ | 8/8 PASS (test report) |
 
@@ -36,7 +36,7 @@
 |---|----------|--------|-------------|
 | 23 | Volume tab: edit → `cells.volume.report` | ✅ | MVP tab → `saveInventoryVolumesMvp` → coordinator |
 | 24 | Inventory tab: product/prices → `cells.content.report` | ✅ | Per-row save → `saveMvpInventoryContent`; локально merge denormalized для snapshot, uplink без них (codec) |
-| 26 | `tasteMediaKey` → PNG/video (`WivaElectronAssets`) | ✅ | Adapter + test asserts `horizontalCardImageUri` / `hasPreparingVideoAsset` |
+| 26 | `tasteMediaKey` → PNG/video (`ViwaElectronAssets`) | ✅ | Adapter + test asserts `horizontalCardImageUri` / `hasPreparingVideoAsset` |
 | 27 | Customer drink list из snapshot, не legacy merge | ✅ | `DrinkListViewModel` init: `snapshotFlow` + `TelemetryCellsSnapshotAdapter` при MVP |
 | 28 | Legacy isolation (`useMvpProtocol=true` Shaker no-op; `false` не ломается) | ✅ | UI split + legacy inventory path; Shaker gate из task-09 не затронут |
 | UC-9 | Пороги в service menu + customer adapter + legacy gate | ✅ partial | Service tabs показывают стоп/мало/норма; adapter без merge. Customer boundary vs STOP — M-1 |
@@ -111,7 +111,7 @@ _Нет._
 | L-1 | Emulator smoke deferred | Service menu tabs не открывались на AVD; nested scroll + editable rows — кандидат на task-12 smoke + logcat. |
 | L-2 | task-09 M-2 **closed** | Production callers: `ServiceViewModel.saveInventoryVolumesMvp` / `saveMvpInventoryContent`. |
 | L-3 | Цены rub ← kopecks | `kopecks / 100` truncates; согласовано с тестом (9900→99). Document if web rounds. |
-| L-4 | `WivaElectronAssets.hasPreparingVideoAsset` | Добавлен для unit-testability — OK, не меняет runtime mapping. |
+| L-4 | `ViwaElectronAssets.hasPreparingVideoAsset` | Добавлен для unit-testability — OK, не меняет runtime mapping. |
 | L-5 | Content save per-row | Каждая строка — отдельный `saveMvpInventoryContent` (1 cell) — OK для MVP; batch save не требовался. |
 
 ---
@@ -127,11 +127,11 @@ _Нет._
 | `MvpInventoryTableRow.kt` | OK | Mapper + `volumeStatus` derivation |
 | `MvpInventorySnapshotMapperTest.kt` | OK | products from snapshot |
 | `ServiceViewModel.kt` | OK | snapshotFlow bind, MVP gate, coordinator wiring; dashboard MVP gap (M-2) |
-| `WivaInventoryVolumesTab.kt` | OK | MVP/Legacy split; status labels on MVP rows |
-| `WivaTelemetryInventoryTab.kt` | OK | Local product picker dialog; MVP edit row |
+| `ViwaInventoryVolumesTab.kt` | OK | MVP/Legacy split; status labels on MVP rows |
+| `ViwaTelemetryInventoryTab.kt` | OK | Local product picker dialog; MVP edit row |
 | `DrinkListViewModel.kt` | OK | MVP snapshot adapter path; init-only gate (M-3) |
 | `DrinkListViewModelMvpInventoryTest.kt` | OK | MVP vs legacy regression |
-| `WivaElectronAssets.kt` | OK (verify) | `hasPreparingVideoAsset` for tests |
+| `ViwaElectronAssets.kt` | OK (verify) | `hasPreparingVideoAsset` for tests |
 
 ---
 
@@ -161,6 +161,6 @@ _Нет._
 {
   "reviewReportFile": "docs/agents/machine-cells-inventory/tasks/task-10-review.md",
   "hasCriticalIssues": false,
-  "commentsSummary": "task-10 APPROVE: MVP volumes/inventory tabs через snapshotFlow, ServiceViewModel wiring onLocalVolumeChange/onLocalContentChange (закрывает task-09 M-2), TelemetryCellsSnapshotAdapter + DrinkListViewModel MVP path, legacy gate без регрессии, block/sos в service UI, tasteMediaKey→WivaElectronAssets. Unit-тесты 8/8 PASS. Некритично: расхождение STOP boundary service vs DrinkContainer.isUnavailable (< vs <=), MVP dashboard не из snapshot, DrinkList MVP gate только при init, nested verticalScroll в SettingsColumn+tabs без emulator smoke, test #6 на mapper а не ViewModel."
+  "commentsSummary": "task-10 APPROVE: MVP volumes/inventory tabs через snapshotFlow, ServiceViewModel wiring onLocalVolumeChange/onLocalContentChange (закрывает task-09 M-2), TelemetryCellsSnapshotAdapter + DrinkListViewModel MVP path, legacy gate без регрессии, block/sos в service UI, tasteMediaKey→ViwaElectronAssets. Unit-тесты 8/8 PASS. Некритично: расхождение STOP boundary service vs DrinkContainer.isUnavailable (< vs <=), MVP dashboard не из snapshot, DrinkList MVP gate только при init, nested verticalScroll в SettingsColumn+tabs без emulator smoke, test #6 на mapper а не ViewModel."
 }
 ```

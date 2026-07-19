@@ -1,4 +1,4 @@
-# Summary: wiva-android-g-calibration-cooking
+# Summary: viwa-android-g-calibration-cooking
 
 **Статус:** ✅ Завершено  
 **Дата:** 2026-04-07
@@ -7,10 +7,10 @@
 
 | Модуль | Статус | Версия | Ключевые артефакты |
 |---|---|---|---|
-| G1 — Калибровка воды | ✅ | 26.04.07.02 / 47 | WaterCalibrationService, WivaWaterCalibrationTab |
-| G2 — Калибровка сиропов | ✅ | 26.04.07.02 / 47 | SyrupCalibrationService, WivaSyrupCalibrationTab |
-| G3 — Процесс готовки | ✅ | 26.04.07.03 / 48 | WivaDrinkSelectionService, PreparingManager, WivaControllerStateService |
-| G4 — Остатки + телеметрия | ✅ | 26.04.07.04 / 49 | InventoryService, WivaInventoryVolumesTab, saleImportTopic |
+| G1 — Калибровка воды | ✅ | 26.04.07.02 / 47 | WaterCalibrationService, ViwaWaterCalibrationTab |
+| G2 — Калибровка сиропов | ✅ | 26.04.07.02 / 47 | SyrupCalibrationService, ViwaSyrupCalibrationTab |
+| G3 — Процесс готовки | ✅ | 26.04.07.03 / 48 | ViwaDrinkSelectionService, PreparingManager, ViwaControllerStateService |
+| G4 — Остатки + телеметрия | ✅ | 26.04.07.04 / 49 | InventoryService, ViwaInventoryVolumesTab, saleImportTopic |
 
 ## Итоговая версия приложения
 
@@ -54,7 +54,7 @@
 
 ## Артефакты
 
-- `docs/agents/wiva-android-g-calibration-cooking/modules/stage-g1-water-calibration/summary.md`
-- `docs/agents/wiva-android-g-calibration-cooking/modules/stage-g2-syrup-calibration/summary.md`
-- `docs/agents/wiva-android-g-calibration-cooking/modules/stage-g3-cooking-flow/summary.md`
-- `docs/agents/wiva-android-g-calibration-cooking/modules/stage-g4-inventory-telemetry/summary.md`
+- `docs/agents/viwa-android-g-calibration-cooking/modules/stage-g1-water-calibration/summary.md`
+- `docs/agents/viwa-android-g-calibration-cooking/modules/stage-g2-syrup-calibration/summary.md`
+- `docs/agents/viwa-android-g-calibration-cooking/modules/stage-g3-cooking-flow/summary.md`
+- `docs/agents/viwa-android-g-calibration-cooking/modules/stage-g4-inventory-telemetry/summary.md`

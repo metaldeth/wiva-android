@@ -31,7 +31,7 @@ M6 (часть 1): domain models, JsonStore snapshot, WS codec (без WS wiring
 
 | Command | Exit code |
 |---------|-----------|
-| `gradlew.bat :app:testDebugUnitTest --tests com.wiva.android.data.repository.TelemetryCellsRepositoryImplTest --tests com.wiva.android.data.remote.telemetry.mvp.cells.TelemetryCellsMessageCodecTest --tests com.wiva.android.domain.catalog.TasteMediaKeyCatalogTest --tests com.wiva.android.domain.telemetry.CellUuidAllocatorTest` | 0 |
+| `gradlew.bat :app:testDebugUnitTest --tests com.viwa.android.data.repository.TelemetryCellsRepositoryImplTest --tests com.viwa.android.data.remote.telemetry.mvp.cells.TelemetryCellsMessageCodecTest --tests com.viwa.android.domain.catalog.TasteMediaKeyCatalogTest --tests com.viwa.android.domain.telemetry.CellUuidAllocatorTest` | 0 |
 
 ## New / modified files
 

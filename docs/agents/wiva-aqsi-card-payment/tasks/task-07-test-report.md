@@ -25,7 +25,7 @@ gradlew.bat :app:testDebugUnitTest
 | 2 | AQSI success → тот же `saleSubscribeTopic.payMethod = "CARD"`, что и PAX | `task07_aqsiApprovedSubscription_sendsSaleSubscribeWithCardPayMethod` (+ стаб `loadMachineRegistration` для мока телеметрии) |
 | 3 | AQSI cancel → без `sendSaleSubscribeTopic` | `task07_aqsiCancelledSubscription_doesNotSendSaleSubscribeTopic` |
 | 4 | Напиток: после одобрения AQSI `prepareDrink(..., salePayMethod = "CARD")` как у PAX | `task07_aqsiApprovedDrink_prepareDrinkUsesCardSaleMethodLikePax` |
-| 5 | Стабильность юнит-пака: `runTest` без `setMain` / конфликт Main → `runBlocking` или `UnconfinedTestDispatcher` + `runBlocking` во ViewModel-тестах | `AqsiRepositoryImplTest`, `CardPaymentOrchestratorTest`, `CardPaymentMethodRepositoryTest`, `WivaAqsi*ViewModelTest`, `WivaCardPaymentMethodViewModelTest` |
+| 5 | Стабильность юнит-пака: `runTest` без `setMain` / конфликт Main → `runBlocking` или `UnconfinedTestDispatcher` + `runBlocking` во ViewModel-тестах | `AqsiRepositoryImplTest`, `CardPaymentOrchestratorTest`, `CardPaymentMethodRepositoryTest`, `WivaAqsi*ViewModelTest`, `ViwaCardPaymentMethodViewModelTest` |
 
 ## Timber-теги (A7)
 
@@ -34,11 +34,11 @@ gradlew.bat :app:testDebugUnitTest
 | `CardPayment` | `CardPaymentOrchestrator` |
 | `AqsiRepo` | `AqsiRepositoryImpl` |
 | `Arcus2` | `Arcus2Client` / `logArcus2WireFrameHead` |
-| `AqsiSettings` | `WivaAqsiSettingsViewModel` |
+| `AqsiSettings` | `ViwaAqsiSettingsViewModel` |
 
 ## Примечания
 
-- В интеграционном тесте подписки явно задан `coEvery { tel.loadMachineRegistration() }`, иначе мок `WivaTelemetryService` мог не завершать сценарий до `sendSaleSubscribeTopic`.
+- В интеграционном тесте подписки явно задан `coEvery { tel.loadMachineRegistration() }`, иначе мок `ViwaTelemetryService` мог не завершать сценарий до `sendSaleSubscribeTopic`.
 - `coEvery { gw.simulateResponseForTests(...) }` в `createSubscriptionVmWithAqsiOrchestrator` — чтобы suspend-мок шлюза не зависал на задержках мок-контроллера.
 - После ревью task-07 TCP-test логи в `AqsiRepositoryImpl` не пишут raw `host:port`: успешный сценарий логируется как `tcp_test ok`, ошибка — только класс исключения.
 - Debug-лог сохранения конфига `AqsiRepositoryImpl` не пишет порт/endpoint, только boolean `hostSet`.

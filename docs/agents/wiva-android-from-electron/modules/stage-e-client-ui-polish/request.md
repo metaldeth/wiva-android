@@ -1,6 +1,6 @@
 # Запрос этапа: E3 полировка клиентских экранов
 
-**sessionId / moduleId:** `wiva-android-from-electron/modules/stage-e-client-ui-polish`
+**sessionId / moduleId:** `viwa-android-from-electron/modules/stage-e-client-ui-polish`
 
 **Цель:** полировка клиентских экранов `wiva-android` (не сервисное меню) под эталон **wiva_electron** (вёрстка/композиция/тексты/состояния), с паттернами плавности и производительности в духе **legacy Android kiosk** (Compose: `remember`, `LazyRow`, `collectAsStateWithLifecycle`, минимизация лишних рекомпозиций).
 

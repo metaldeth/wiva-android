@@ -2,13 +2,13 @@
 
 Полное ТЗ и правила источников: [`TZ_WIVA_ANDROID_FROM_ELECTRON.md`](TZ_WIVA_ANDROID_FROM_ELECTRON.md).
 
-**Мета-сессия:** `wiva-android-from-electron`  
-**Корень артефактов агентов:** `docs/agents/wiva-android-from-electron/`  
+**Мета-сессия:** `viwa-android-from-electron`  
+**Корень артефактов агентов:** `docs/agents/viwa-android-from-electron/`  
 **Правило:** один чат = один этап (complex). Следующий этап — только после галочек **«Этап закрыт»** ниже.
 
 На каждом этапе: вопросы владельцу по формату **§4.1** ТЗ; источники — **§2** ТЗ.
 
-**Сервисное меню (для этапов E и любых настроек дальше):** порядок групп/подвкладок — как **wiva_electron** `ServiceMenu/constants.ts`; оболочка и паттерны форм — как **legacy Android kiosk** `ServiceMenuScreen` + `tabs/`. Зеркало в коде: `WivaServiceMenuStructure.kt`, `ServiceScreen.kt`, `WivaServiceMenuTabContent.kt` (новые вкладки — в `.../service/tabs/` по образцу киоска). Подробности — таблица **«Сервисное меню»** в ТЗ §2.
+**Сервисное меню (для этапов E и любых настроек дальше):** порядок групп/подвкладок — как **wiva_electron** `ServiceMenu/constants.ts`; оболочка и паттерны форм — как **legacy Android kiosk** `ServiceMenuScreen` + `tabs/`. Зеркало в коде: `ViwaServiceMenuStructure.kt`, `ServiceScreen.kt`, `ViwaServiceMenuTabContent.kt` (новые вкладки — в `.../service/tabs/` по образцу киоска). Подробности — таблица **«Сервисное меню»** в ТЗ §2.
 
 ---
 
@@ -22,7 +22,7 @@
 | 2 | `moduleId` |
 | 3 | ID задач ТЗ (например `A1–A4`, `B3`) |
 
-**После** успешного завершения этапа: отметь в этом файле все чекбоксы DoD для этапа и **«Этап закрыт»**; по желанию — запись в `docs/agents/wiva-android-from-electron/meta-orchestrator-log.md`.
+**После** успешного завершения этапа: отметь в этом файле все чекбоксы DoD для этапа и **«Этап закрыт»**; по желанию — запись в `docs/agents/viwa-android-from-electron/meta-orchestrator-log.md`.
 
 ```text
 Режим: complex.
@@ -32,8 +32,8 @@
 ТЗ: wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md — выполнить только ID задач из третьего сегмента строки параметров.
 Правила: §2 источники (в т.ч. инвариант сервисного меню для UI настроек), §3 мок контроллера где применимо, §4.1 — вопросы владельцу в чат при неоднозначности.
 
-Каталог артефактов модуля: wiva-android/docs/agents/wiva-android-from-electron/modules/{moduleId}/ — подставь moduleId (второй сегмент параметров).
-sessionId для оркестратора: wiva-android-from-electron/modules/{moduleId}
+Каталог артефактов модуля: wiva-android/docs/agents/viwa-android-from-electron/modules/{moduleId}/ — подставь moduleId (второй сегмент параметров).
+sessionId для оркестратора: viwa-android-from-electron/modules/{moduleId}
 
 Итог этапа: сборка по команде из wiva-android/AGENTS.md (если файла ещё нет — создать минимальный с buildCommand по ТЗ §7); в каталоге модуля — summary.md.
 
@@ -60,7 +60,7 @@ sessionId для оркестратора: wiva-android-from-electron/modules/{m
 | | |
 | --- | --- |
 | **moduleId** | `stage-a-carcass-ota` |
-| **Папка артефактов** | `docs/agents/wiva-android-from-electron/modules/stage-a-carcass-ota/` |
+| **Папка артефактов** | `docs/agents/viwa-android-from-electron/modules/stage-a-carcass-ota/` |
 | **Зависимости** | нет |
 
 **Промпт для чата (скопировать):**
@@ -68,7 +68,7 @@ sessionId для оркестратора: wiva-android-from-electron/modules/{m
 ```text
 Режим: complex. Задача: модуль A из wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md (только ID A1–A4).
 Следовать §2 источникам, §3 моку (флаг), §4.1 для вопросов в чат.
-sessionId артефактов: wiva-android-from-electron/modules/stage-a-carcass-ota (каталог под wiva-android/docs/agents/).
+sessionId артефактов: viwa-android-from-electron/modules/stage-a-carcass-ota (каталог под wiva-android/docs/agents/).
 Итог: рабочая сборка, summary.md в каталоге модуля; после A — минимальный wiva-android/AGENTS.md с buildCommand (ТЗ §7).
 ```
 
@@ -90,7 +90,7 @@ sessionId артефактов: wiva-android-from-electron/modules/stage-a-carca
 | | |
 | --- | --- |
 | **moduleId** | `stage-b-mock-first` |
-| **Папка артефактов** | `docs/agents/wiva-android-from-electron/modules/stage-b-mock-first/` |
+| **Папка артефактов** | `docs/agents/viwa-android-from-electron/modules/stage-b-mock-first/` |
 | **Зависимости** | этап 1 закрыт |
 
 **Промпт для чата:**
@@ -98,7 +98,7 @@ sessionId артефактов: wiva-android-from-electron/modules/stage-a-carca
 ```text
 Режим: complex. Задача: модуль B из wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md (только ID B3 — MockController).
 Следовать §2–§4.1 ТЗ. Эталон сценариев: wiva_electron MockControllerConnection и моки.
-sessionId: wiva-android-from-electron/modules/stage-b-mock-first
+sessionId: viwa-android-from-electron/modules/stage-b-mock-first
 Итог: summary.md, сценарий на эмуляторе: команда → ожидаемый ответ мока в логе/UI.
 ```
 
@@ -117,7 +117,7 @@ sessionId: wiva-android-from-electron/modules/stage-b-mock-first
 | | |
 | --- | --- |
 | **moduleId** | `stage-b-real-controller` |
-| **Папка артефактов** | `docs/agents/wiva-android-from-electron/modules/stage-b-real-controller/` |
+| **Папка артефактов** | `docs/agents/viwa-android-from-electron/modules/stage-b-real-controller/` |
 | **Зависимости** | этап 2 закрыт |
 
 **Промпт для чата:**
@@ -125,7 +125,7 @@ sessionId: wiva-android-from-electron/modules/stage-b-mock-first
 ```text
 Режим: complex. Задача: модуль B из wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md (ID B1, B2, B4 — без B3).
 Следовать §2 ТЗ: протокол и команды из wiva_electron; SERIAL_PORTS_IMPLEMENTATION.md; PaymentTerminalService и цепочка оплаты.
-sessionId: wiva-android-from-electron/modules/stage-b-real-controller
+sessionId: viwa-android-from-electron/modules/stage-b-real-controller
 Итог: summary.md; юнит-тесты на пакеты; чеклист порядка вызовов vs wiva.
 ```
 
@@ -145,7 +145,7 @@ sessionId: wiva-android-from-electron/modules/stage-b-real-controller
 | | |
 | --- | --- |
 | **moduleId** | `stage-c-integrations` |
-| **Папка артефактов** | `docs/agents/wiva-android-from-electron/modules/stage-c-integrations/` |
+| **Папка артефактов** | `docs/agents/viwa-android-from-electron/modules/stage-c-integrations/` |
 | **Зависимости** | этап 1 закрыт (минимум); логично после 1–3 по стабильности |
 
 **Промпт для чата:**
@@ -153,7 +153,7 @@ sessionId: wiva-android-from-electron/modules/stage-b-real-controller
 ```text
 Режим: complex. Задача: модуль C из wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md (C1–C4).
 Источник интеграций: legacy Android kiosk (§2 ТЗ). Не объединять C1–C3 в один PR без промежуточных сборок — заложить волны в плане.
-sessionId: wiva-android-from-electron/modules/stage-c-integrations
+sessionId: viwa-android-from-electron/modules/stage-c-integrations
 Итог: summary.md; после каждой из C1/C2/C3 — сборка OK.
 ```
 
@@ -174,7 +174,7 @@ sessionId: wiva-android-from-electron/modules/stage-c-integrations
 | | |
 | --- | --- |
 | **moduleId** | `stage-d-telemetry` |
-| **Папка артефактов** | `docs/agents/wiva-android-from-electron/modules/stage-d-telemetry/` |
+| **Папка артефактов** | `docs/agents/viwa-android-from-electron/modules/stage-d-telemetry/` |
 | **Зависимости** | транспорт приложения и платежи по необходимости для D4 |
 
 **Промпт для чата:**
@@ -183,7 +183,7 @@ sessionId: wiva-android-from-electron/modules/stage-c-integrations
 Режим: complex. Задача: модуль D из wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md (D1–D4).
 Транспорт и регистрация — legacy Android kiosk; семантика send*/входящие — wiva_electron (§2).
 D2: таблица топиков → артефакт в docs/ или в мета-сессии. D3: по одному кластеру за итерацию плана.
-sessionId: wiva-android-from-electron/modules/stage-d-telemetry
+sessionId: viwa-android-from-electron/modules/stage-d-telemetry
 Итог: summary.md; D4: E2E на моке «событие → JSON как в эталоне».
 ```
 
@@ -204,7 +204,7 @@ sessionId: wiva-android-from-electron/modules/stage-d-telemetry
 | | |
 | --- | --- |
 | **moduleId** | `stage-e-ui-flow` |
-| **Папка артефактов** | `docs/agents/wiva-android-from-electron/modules/stage-e-ui-flow/` |
+| **Папка артефактов** | `docs/agents/viwa-android-from-electron/modules/stage-e-ui-flow/` |
 | **Зависимости** | мок B3; телеметрия/оплаты по сценариям |
 
 **Промпт для чата:**
@@ -212,30 +212,30 @@ sessionId: wiva-android-from-electron/modules/stage-d-telemetry
 ```text
 Режим: complex. Задача: модуль E из wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md (E1–E3; далее экраны отдельными задачами в плане).
 Состояния как у wiva renderer; при конфликте с киоском — wiva (§2).
-Сервисное меню: только структура из ТЗ §2 (таблица) — порядок групп как wiva_electron ServiceMenu/constants.ts, вёрстка rail+табы как legacy Android kiosk ServiceMenuScreen; новые пункты — в существующие группы/подвкладки или после синхронизации constants.ts + WivaServiceMenuStructure.kt.
-sessionId: wiva-android-from-electron/modules/stage-e-ui-flow
+Сервисное меню: только структура из ТЗ §2 (таблица) — порядок групп как wiva_electron ServiceMenu/constants.ts, вёрстка rail+табы как legacy Android kiosk ServiceMenuScreen; новые пункты — в существующие группы/подвкладки или после синхронизации constants.ts + ViwaServiceMenuStructure.kt.
+sessionId: viwa-android-from-electron/modules/stage-e-ui-flow
 Итог: summary.md; E1 happy-path на моке.
 ```
 
 **DoD:**
 
 - [x] E1: выбор напитка/объёма — полный happy-path на моке
-- [x] E2: сервисное меню — ручная проверка: все группы из electron отображаются в нужном порядке; подвкладки совпадают по смыслу; контент наращивается в `WivaServiceMenuTabContent` / `service/tabs/*`, без отдельных экранов-«мимо» меню; мок/телеметрия/оборудование на своих местах по плану §2
+- [x] E2: сервисное меню — ручная проверка: все группы из electron отображаются в нужном порядке; подвкладки совпадают по смыслу; контент наращивается в `ViwaServiceMenuTabContent` / `service/tabs/*`, без отдельных экранов-«мимо» меню; мок/телеметрия/оборудование на своих местах по плану §2
 - [x] E3+: каждый доп. экран — отдельная задача в плане с DoD (отметить в summary перечень экранов)
 - [x] **`summary.md`**
 
-**Этап закрыт:** да (2026-04-01) — `assembleDebug`, `testDebugUnitTest`; детали — `docs/agents/wiva-android-from-electron/modules/stage-e-ui-flow/summary.md`.
+**Этап закрыт:** да (2026-04-01) — `assembleDebug`, `testDebugUnitTest`; детали — `docs/agents/viwa-android-from-electron/modules/stage-e-ui-flow/summary.md`.
 
 ---
 
 ### E3+ — Полировка клиентского UI (`stage-e-client-ui-polish`)
 
-Дополнение к модулю E: внешний вид, анимации, модалка оплаты, горизонтальные карточки, экран готовки — без смены протокола/телеметрии. Таблица соответствия electron → Android: `docs/agents/wiva-android-from-electron/modules/stage-e-client-ui-polish/summary.md`.
+Дополнение к модулю E: внешний вид, анимации, модалка оплаты, горизонтальные карточки, экран готовки — без смены протокола/телеметрии. Таблица соответствия electron → Android: `docs/agents/viwa-android-from-electron/modules/stage-e-client-ui-polish/summary.md`.
 
 | | |
 | --- | --- |
 | **moduleId** | `stage-e-client-ui-polish` |
-| **Папка артефактов** | `docs/agents/wiva-android-from-electron/modules/stage-e-client-ui-polish/` |
+| **Папка артефактов** | `docs/agents/viwa-android-from-electron/modules/stage-e-client-ui-polish/` |
 
 **DoD:**
 
@@ -255,7 +255,7 @@ sessionId: wiva-android-from-electron/modules/stage-e-ui-flow
 | | |
 | --- | --- |
 | **moduleId** | `stage-f-office` |
-| **Папка артефактов** | `docs/agents/wiva-android-from-electron/modules/stage-f-office/` |
+| **Папка артефактов** | `docs/agents/viwa-android-from-electron/modules/stage-f-office/` |
 | **Зависимости** | рабочие сборки предыдущих этапов; физический стенд |
 
 **Промпт для чата:**
@@ -263,7 +263,7 @@ sessionId: wiva-android-from-electron/modules/stage-e-ui-flow
 ```text
 Режим: complex. Задача: модуль F из wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md (F1–F2).
 Физический контроллер, калибровка портов, регрессия к моку; реальный платёжный терминал на стенде.
-sessionId: wiva-android-from-electron/modules/stage-f-office
+sessionId: viwa-android-from-electron/modules/stage-f-office
 Итог: summary.md; чеклист F1 с подписями/датой; F2 — успешная транзакция на стенде.
 ```
 
@@ -339,7 +339,7 @@ sessionId: wiva-android-from-electron/modules/stage-f-office
 
 ## После каждого этапа (опционально, для мета-сессии)
 
-- [ ] Краткая запись в `docs/agents/wiva-android-from-electron/meta-orchestrator-log.md` (волна, модуль, статус, blockingQuestions если были)
+- [ ] Краткая запись в `docs/agents/viwa-android-from-electron/meta-orchestrator-log.md` (волна, модуль, статус, blockingQuestions если были)
 
 ---
 

@@ -21,7 +21,7 @@
 ## Верификация прогона (агент)
 
 ```text
-gradlew.bat --no-daemon :app:testDebugUnitTest --tests "com.wiva.android.ui.screens.customer.DrinkListViewModelTask05IntegrationTest"
+gradlew.bat --no-daemon :app:testDebugUnitTest --tests "com.viwa.android.ui.screens.customer.DrinkListViewModelTask05IntegrationTest"
 → BUILD SUCCESSFUL (exit 0)
 ```
 

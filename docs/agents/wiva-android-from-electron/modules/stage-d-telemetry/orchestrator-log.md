@@ -10,7 +10,7 @@
 
 ## [architecture] Краткая архитектура
 
-- Слой `data/remote/telemetry` — адаптация транспорта киоска (пакет `com.wiva.android`).
+- Слой `data/remote/telemetry` — адаптация транспорта киоска (пакет `com.viwa.android`).
 - `WivaTelemetryManager` (аналог `manager.ts`) — маршрутизация топиков и send* с payload как в wiva.
 - D2: `docs/TELEMETRY_EXCHANGES_INVENTORY.md`.
 - D4: связка через существующие точки оплаты/подписок + unit/E2E проверка JSON.

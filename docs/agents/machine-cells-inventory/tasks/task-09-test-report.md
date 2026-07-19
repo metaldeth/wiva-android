@@ -24,8 +24,8 @@ M6 (часть 2): `TelemetryCellsSyncCoordinator`, WS uplink/downlink, hello wi
 
 | Command | Exit code |
 |---------|-----------|
-| `gradlew.bat :app:testDebugUnitTest --tests com.wiva.android.data.remote.telemetry.mvp.TelemetryCellsSyncCoordinatorTest` | 0 |
-| `gradlew.bat :app:testDebugUnitTest --tests com.wiva.android.data.remote.telemetry.mvp.SimpleTelemetryCoordinator*` | 0 |
+| `gradlew.bat :app:testDebugUnitTest --tests com.viwa.android.data.remote.telemetry.mvp.TelemetryCellsSyncCoordinatorTest` | 0 |
+| `gradlew.bat :app:testDebugUnitTest --tests com.viwa.android.data.remote.telemetry.mvp.SimpleTelemetryCoordinator*` | 0 |
 
 ## New / modified files (task-09)
 
@@ -46,7 +46,7 @@ M6 (часть 2): `TelemetryCellsSyncCoordinator`, WS uplink/downlink, hello wi
 - **Post-hello:** `cells.schema.report` with `clientSchemaHash` / `clientContentRevision` from persisted snapshot; optional `cells.content.report` when snapshot has reportable content (OQ-9).
 - **Volume/content uplink:** best-effort via `sendEnvelope`; local snapshot updated before send (OQ-7).
 - **Downlink `cells.snapshot`:** atomic full replace via `TelemetryCellsRepository.replaceSnapshot` (MVP overwrites pending local edits).
-- **Legacy isolation:** `useMvpProtocol=true` uses coordinator; `false` skips cells sync handler; Shaker topics remain no-op via existing `skipLegacyTopic` in `WivaTelemetryService`.
+- **Legacy isolation:** `useMvpProtocol=true` uses coordinator; `false` skips cells sync handler; Shaker topics remain no-op via existing `skipLegacyTopic` in `ViwaTelemetryService`.
 - **Reconnect (C-3):** `schemaHash` from server ack persisted; next hello sends saved revision fields.
 
 ## Instrumented / dev API

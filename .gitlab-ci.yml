@@ -30,7 +30,7 @@ build_release_apk:
     - android
     - wiva
   interruptible: true
-  resource_group: wiva-android-ota
+  resource_group: viwa-android-ota
   before_script:
     - export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin:$PATH"
     - |
@@ -57,15 +57,15 @@ build_release_apk:
         --build-arg "KEY_PASSWORD=${KEY_PASSWORD:-}" \
         --build-arg "KEY_ALIAS=${KEY_ALIAS:-}" \
         --build-arg "KEYSTORE_PATH=${KEYSTORE_PATH:-}" \
-        -t "wiva-android-ci:${CI_PIPELINE_ID}" \
+        -t "viwa-android-ci:${CI_PIPELINE_ID}" \
         .
     - mkdir -p release
     - |
-      CID="$(docker create "wiva-android-ci:${CI_PIPELINE_ID}")"
+      CID="$(docker create "viwa-android-ci:${CI_PIPELINE_ID}")"
       docker cp "${CID}:/app/release/." ./release/
       docker rm -v "${CID}"
     - scripts/ci-align-release-owner.sh
-    - docker rmi "wiva-android-ci:${CI_PIPELINE_ID}" || true
+    - docker rmi "viwa-android-ci:${CI_PIPELINE_ID}" || true
     - ls -la release/
     - |
       if [ -n "${WIVA_OTA_RELEASE_DIR:-}" ]; then

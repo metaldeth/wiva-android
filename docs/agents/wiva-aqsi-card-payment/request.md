@@ -28,7 +28,7 @@ DrinkListViewModel.startCardPayment()
   → PaymentTerminalService.sendSumToTerminal()     # команда 0x48 контроллеру
     → Controller (контроллер автомата)             # PAX-терминал через контроллер
       → ResponseCommand.PaymentSystemsPaxStatus (0x56)  # статус 4 = «оплата прошла»
-        → WivaTelemetryService.sendDemoSaleImportForE2e()
+        → ViwaTelemetryService.sendDemoSaleImportForE2e()
 ```
 
 **Ключевые файлы существующего слоя:**
@@ -41,8 +41,8 @@ DrinkListViewModel.startCardPayment()
 | `ui/screens/customer/DrinkListViewModel.kt` | `startCardPayment()` / `paidTerminalThenPour()` |
 | `domain/model/PaymentMethod.kt` | Enum: `NONE`, `SBP`, `CARD` |
 | `data/local/db/JsonStoreKeys.kt` | Ключи локального хранилища настроек |
-| `ui/screens/service/WivaServiceMenuStructure.kt` | Группы/вкладки сервисного меню |
-| `ui/screens/service/WivaServiceMenuTabContent.kt` | UI вкладки `Equipment > Платёжник` |
+| `ui/screens/service/ViwaServiceMenuStructure.kt` | Группы/вкладки сервисного меню |
+| `ui/screens/service/ViwaServiceMenuTabContent.kt` | UI вкладки `Equipment > Платёжник` |
 | `di/IntegrationsModule.kt` | Hilt-модуль для интеграций (MAX, СБП, НК) |
 
 ---
@@ -185,25 +185,25 @@ DrinkListViewModel.startCardPayment()
 
 **Что добавить:**
 
-В `WivaServiceMenuStructure.kt` — новая группа и вкладки (только добавление):
+В `ViwaServiceMenuStructure.kt` — новая группа и вкладки (только добавление):
 
 ```kotlin
-// В WivaServiceGroupId:
-data object CardPayment : WivaServiceGroupId
+// В ViwaServiceGroupId:
+data object CardPayment : ViwaServiceGroupId
 
-// В WivaServiceSubTabId:
-data object CardPaymentMethod : WivaServiceSubTabId   // выбор PAX / aQsi
-data object AqsiSettings : WivaServiceSubTabId        // host, port, timeout, тест соединения
-data object AqsiDiagnostics : WivaServiceSubTabId     // статус, лог последней транзакции
+// В ViwaServiceSubTabId:
+data object CardPaymentMethod : ViwaServiceSubTabId   // выбор PAX / aQsi
+data object AqsiSettings : ViwaServiceSubTabId        // host, port, timeout, тест соединения
+data object AqsiDiagnostics : ViwaServiceSubTabId     // статус, лог последней транзакции
 
 // В WivaServiceMenuGroups: добавить блок после Integrations:
 WivaServiceGroupSpec(
-    id = WivaServiceGroupId.CardPayment,
+    id = ViwaServiceGroupId.CardPayment,
     label = "Оплата картой",
     subTabs = listOf(
-        WivaServiceSubTabSpec(WivaServiceSubTabId.CardPaymentMethod, "Метод"),
-        WivaServiceSubTabSpec(WivaServiceSubTabId.AqsiSettings, "aQsi — Настройки"),
-        WivaServiceSubTabSpec(WivaServiceSubTabId.AqsiDiagnostics, "aQsi — Диагностика"),
+        WivaServiceSubTabSpec(ViwaServiceSubTabId.CardPaymentMethod, "Метод"),
+        WivaServiceSubTabSpec(ViwaServiceSubTabId.AqsiSettings, "aQsi — Настройки"),
+        WivaServiceSubTabSpec(ViwaServiceSubTabId.AqsiDiagnostics, "aQsi — Диагностика"),
     ),
 )
 ```
@@ -243,7 +243,7 @@ WivaServiceGroupSpec(
 
 **Телеметрия:**
 
-- При успешной оплате через aQsi вызывать тот же `WivaTelemetryService.sendDemoSaleImportForE2e()` (или финальный метод), что и PAX-путь.
+- При успешной оплате через aQsi вызывать тот же `ViwaTelemetryService.sendDemoSaleImportForE2e()` (или финальный метод), что и PAX-путь.
 - Метод в `SaleImportPaymentJson.method` = `"CARD"` (не менять существующую строку).
 - Если в проекте появится различение по типу ридера — отдельный ADR, не в этой задаче.
 
@@ -287,8 +287,8 @@ app/src/main/java/com/wiva/android/
 | Файл | Изменение |
 |------|-----------|
 | `data/local/db/JsonStoreKeys.kt` | `+CARD_PAYMENT_METHOD`, `+AQSI_SETTINGS` |
-| `ui/screens/service/WivaServiceMenuStructure.kt` | `+CardPayment` группа и 3 вкладки |
-| `ui/screens/service/WivaServiceMenuTabContent.kt` | `+when` ветки для трёх новых вкладок |
+| `ui/screens/service/ViwaServiceMenuStructure.kt` | `+CardPayment` группа и 3 вкладки |
+| `ui/screens/service/ViwaServiceMenuTabContent.kt` | `+when` ветки для трёх новых вкладок |
 | `ui/screens/customer/DrinkListViewModel.kt` | `paidTerminalThenPour` → через `CardPaymentOrchestrator` |
 
 ---

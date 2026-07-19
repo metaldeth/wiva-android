@@ -4,11 +4,11 @@
 
 ```text
 # §14 Approved: узкий прогон интеггации VM после `task05_14_aqsiApprovedFromOrder_updatesDiagnosticHolder`
-gradlew.bat --no-daemon :app:testDebugUnitTest --tests "com.wiva.android.ui.screens.customer.DrinkListViewModelTask05IntegrationTest"
+gradlew.bat --no-daemon :app:testDebugUnitTest --tests "com.viwa.android.ui.screens.customer.DrinkListViewModelTask05IntegrationTest"
 
-gradlew.bat --no-daemon :app:testDebugUnitTest --tests "com.wiva.android.services.payment.CardPaymentOrchestratorTest" --tests "com.wiva.android.ui.screens.customer.DrinkListViewModelPaymentFlowTest" --tests "com.wiva.android.ui.screens.customer.DrinkListViewModelTask05IntegrationTest"
+gradlew.bat --no-daemon :app:testDebugUnitTest --tests "com.viwa.android.services.payment.CardPaymentOrchestratorTest" --tests "com.viwa.android.ui.screens.customer.DrinkListViewModelPaymentFlowTest" --tests "com.viwa.android.ui.screens.customer.DrinkListViewModelTask05IntegrationTest"
 
-gradlew.bat --no-daemon :app:testDebugUnitTest --tests "com.wiva.android.data.payment.aqsi.AqsiRepositoryImplTest" --tests "com.wiva.android.domain.model.AqsiPaymentResultTest"
+gradlew.bat --no-daemon :app:testDebugUnitTest --tests "com.viwa.android.data.payment.aqsi.AqsiRepositoryImplTest" --tests "com.viwa.android.domain.model.AqsiPaymentResultTest"
 
 gradlew.bat --no-daemon assembleDebug
 ```

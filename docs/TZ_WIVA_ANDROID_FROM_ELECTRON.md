@@ -31,9 +31,9 @@
 
 | Аспект | Источник правды | Реализация в `wiva-android` |
 | --- | --- | --- |
-| **Порядок вертикальных групп** и **названия горизонтальных подвкладок** (что за чем идёт в колонке слева и в табах сверху контента) | `wiva_electron/src/renderer/components/ServiceMenu/constants.ts` (`SERVICE_MENU_GROUPS`) | Зеркало: `app/.../service/WivaServiceMenuStructure.kt` (`WivaServiceMenuGroups`). При изменении меню в electron — обновить Kotlin-список и навигацию. |
-| **Вёрстка оболочки** (шапка primary «Сервисное меню», закрытие, левый rail ~172 dp, `ScrollableTabRow` при нескольких подвкладках, прокручиваемый контент с полями) | `legacy Android kiosk/.../service/ServiceMenuScreen.kt`, паттерны полей — `tabs/ServiceTabUtils.kt` (`SettingsColumn`, `SettingsTextField`), примеры вкладок — `tabs/*Tab.kt` | `ServiceScreen.kt`, `ServiceTabUtils.kt`, содержимое вкладок — `WivaServiceMenuTabContent.kt` и при необходимости новые файлы **в пакете `.../service/tabs/`** по образцу киоска. |
-| **Куда класть новую фичу** | Таб с тем же смыслом в `wiva_electron` `ServiceMenu` (таб-компоненты в `components/ServiceMenu/tabs/`) | Та же **группа/подвкладка**, что в electron; если в electron появилась новая группа или подвкладка — сначала зафиксировать там, затем перенести в `WivaServiceMenuStructure.kt` и в `when` в `WivaServiceMenuTabContent.kt`. |
+| **Порядок вертикальных групп** и **названия горизонтальных подвкладок** (что за чем идёт в колонке слева и в табах сверху контента) | `viwa_electron/src/renderer/components/ServiceMenu/constants.ts` (`SERVICE_MENU_GROUPS`) | Зеркало: `app/.../service/ViwaServiceMenuStructure.kt` (`WivaServiceMenuGroups`). При изменении меню в electron — обновить Kotlin-список и навигацию. |
+| **Вёрстка оболочки** (шапка primary «Сервисное меню», закрытие, левый rail ~172 dp, `ScrollableTabRow` при нескольких подвкладках, прокручиваемый контент с полями) | `legacy Android kiosk/.../service/ServiceMenuScreen.kt`, паттерны полей — `tabs/ServiceTabUtils.kt` (`SettingsColumn`, `SettingsTextField`), примеры вкладок — `tabs/*Tab.kt` | `ServiceScreen.kt`, `ServiceTabUtils.kt`, содержимое вкладок — `ViwaServiceMenuTabContent.kt` и при необходимости новые файлы **в пакете `.../service/tabs/`** по образцу киоска. |
+| **Куда класть новую фичу** | Таб с тем же смыслом в `wiva_electron` `ServiceMenu` (таб-компоненты в `components/ServiceMenu/tabs/`) | Та же **группа/подвкладка**, что в electron; если в electron появилась новая группа или подвкладка — сначала зафиксировать там, затем перенести в `ViwaServiceMenuStructure.kt` и в `when` в `ViwaServiceMenuTabContent.kt`. |
 
 **Текущее соответствие групп (как в electron):** «Телеметрия / Данные» → «Оборудование» → «Обслуживание» → «Настройки» → «Обновление» → «Логи» → «Производительность / Оптимизация» → «Метрики». Заглушки с текстом «позже» допустимы до соответствующего этапа; расширять функционал — заменяя заглушку в **уже существующей** ячейке меню.
 
@@ -41,7 +41,7 @@
 
 - **Зачем:** полные пользовательские сценарии на **эмуляторе** без USB/RS-контроллера; офис потом только подключает реализацию транспорта к железу.
 - **Интерфейс:** один контракт (например `ControllerGateway` / `MachineController`) с двумя реализациями: `RealControllerTransport` и `MockControllerTransport`.
-- **Поведение мока:** отражает **те же события и последовательности**, что реальный контроллер в wiva: успех/ошибка оплаты, статусы терминала, ответы на команды наливов и т.д. Ориентир по сценариям — существующие моки в wiva: `wiva_electron/src/main/hardware/controller/__mocks__/MockControllerConnection.ts` (и тесты рядом) — перенести смысл в Kotlin, не обязательно построчно.
+- **Поведение мока:** отражает **те же события и последовательности**, что реальный контроллер в wiva: успех/ошибка оплаты, статусы терминала, ответы на команды наливов и т.д. Ориентир по сценариям — существующие моки в wiva: `viwa_electron/src/main/hardware/controller/__mocks__/MockControllerConnection.ts` (и тесты рядом) — перенести смысл в Kotlin, не обязательно построчно.
 - **Переключение:** build variant / `BuildConfig` / настройка dev-меню — явный флаг «мок контроллера»; в прод-сборке по умолчанию реальный транспорт (когда будет готов).
 - **Проверка после внедрения мока:** сценарий «выбор напитка → оплата (мок) → команда наливу» проходит без устройства; логи соответствуют ожидаемым шагам из wiva.
 
@@ -120,7 +120,7 @@
 | ID  | Задача                                                                                                                          | DoD                                                                                             |
 | --- | ------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | D1  | Интегрировать `TelemetryWebSocketManager` / регистрацию / API из `legacy Android kiosk` в wiva-android.                                | Подключение к стенду, индикатор состояния (как минимум лог)                                     |
-| D2 | Инвентаризация всех исходящих `send*` и обработчиков входящих в `wiva_electron/src/main/modules/telemetry` → таблица «топик / файл TS / планируемый Kotlin-файл». | Артефакт в репозитории (markdown в `docs/` или в мета-сессии) |
+| D2 | Инвентаризация всех исходящих `send*` и обработчиков входящих в `viwa_electron/src/main/modules/telemetry` → таблица «топик / файл TS / планируемый Kotlin-файл». | Артефакт в репозитории (markdown в `docs/` или в мета-сессии) |
 | D3  | Портировать обмены **по одному кластеру** (например: auth + registration, затем subscription, затем cell store, …).             | После каждого кластера: ручная или автоматическая проверка на стенде + сравнение payload с wiva |
 | D4  | Связать события оплаты/подписок из кода wiva-потока с `telemetryManager`-аналогом (не с киосковой семантикой, если отличается). | E2E на моке: «событие X → ушёл JSON как в эталоне»                                              |
 
@@ -171,7 +171,7 @@
 
 ### 6.2. Meta-complex
 
-Рекомендуемый `metaSessionId`: `wiva-android-from-electron` (или согласованный короткий id).
+Рекомендуемый `metaSessionId`: `viwa-android-from-electron` (или согласованный короткий id).
 
 **Декомпозиция для мета-оркестратора** (каждый пункт = отдельный complex-пайплайн, каталог `docs/agents/{metaSessionId}/modules/{id}/` по `.cursor/skills/core-complex/meta-orchestrator/SKILL.md`):
 
@@ -190,7 +190,7 @@
 **Стартовый промпт для мета-оркестратора (шаблон):**
 
 ```text
-metaSessionId: wiva-android-from-electron
+metaSessionId: viwa-android-from-electron
 userTask: Реализовать wiva-android по wiva-android/docs/TZ_WIVA_ANDROID_FROM_ELECTRON.md.
 Источники: wiva_electron (контроллер + семантика телеметрии), legacy Android kiosk (MAX, СБП, Нанокасса, транспорт телеметрии, OTA server+client как в docs/OTA_UPDATE.md).
 Сервисное меню: порядок вкладок — wiva_electron ServiceMenu/constants.ts; оболочка и паттерны полей — legacy Android kiosk ServiceMenuScreen + tabs (см. ТЗ §2, таблица «Сервисное меню»).

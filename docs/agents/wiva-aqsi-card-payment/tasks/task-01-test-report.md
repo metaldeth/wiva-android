@@ -6,7 +6,7 @@
 ## Команды
 
 ```bat
-gradlew.bat :app:testDebugUnitTest --tests "com.wiva.android.data.repository.CardPaymentMethodRepositoryTest"
+gradlew.bat :app:testDebugUnitTest --tests "com.viwa.android.data.repository.CardPaymentMethodRepositoryTest"
 gradlew.bat assembleDebug
 ```
 
