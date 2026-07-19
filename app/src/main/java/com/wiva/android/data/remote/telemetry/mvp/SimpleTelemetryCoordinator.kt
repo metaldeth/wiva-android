@@ -2,6 +2,7 @@ package com.wiva.android.data.remote.telemetry.mvp
 
 import android.os.Build
 import com.wiva.android.BuildConfig
+import com.wiva.android.data.local.db.JsonStoreKeys
 import com.wiva.android.data.local.security.MachineSecretStore
 import com.wiva.android.data.remote.telemetry.ConnectionState
 import com.wiva.android.data.repository.ConfigRepository
@@ -47,11 +48,15 @@ constructor(
     private val lifecycleMutex = Mutex()
     private var connectJob: Job? = null
 
-    @Volatile
-    private var pausedByUser = false
+    private suspend fun isUserPaused(): Boolean =
+        configRepository.get(JsonStoreKeys.TELEMETRY_PAUSED_BY_USER) == "true"
 
-    @Volatile
-    private var cachedUseMvpProtocol: Boolean = false
+    private suspend fun setUserPaused(paused: Boolean) {
+        configRepository.set(
+            JsonStoreKeys.TELEMETRY_PAUSED_BY_USER,
+            if (paused) "true" else "false",
+        )
+    }
 
     private val _mvpProtocolEnabled = MutableStateFlow(false)
     val mvpProtocolEnabled: StateFlow<Boolean> = _mvpProtocolEnabled.asStateFlow()
@@ -83,6 +88,9 @@ constructor(
         cachedUseMvpProtocol = enabled
         _mvpProtocolEnabled.value = enabled
     }
+
+    @Volatile
+    private var cachedUseMvpProtocol: Boolean = false
 
     suspend fun loadMachineRegistration(): MachineRegistration {
         val raw =
@@ -158,6 +166,7 @@ constructor(
         }
         val config = loadTelemetryConfig()
         val reg = ensureIdentity(loadMachineRegistration())
+        val previousSerial = SerialNumberUtils.normalize(reg.serialNumber)
         val request =
             RegisterRequestDto(
                 registrationKey = normalizedKey,
@@ -178,7 +187,14 @@ constructor(
         return apiClient
             .register(config.apiUrl, request)
             .map { response ->
-                machineSecretStore.saveSecret(response.serialNumber, response.machineSecret)
+                val enrolledSerial =
+                    SerialNumberUtils.normalize(
+                        response.serialNumber.ifBlank { normalizedSerial },
+                    )
+                if (previousSerial.isNotBlank() && previousSerial != enrolledSerial) {
+                    machineSecretStore.clearSecret(previousSerial)
+                }
+                machineSecretStore.saveSecret(enrolledSerial, response.machineSecret)
                 val wsUrl =
                     MvpTelemetryUrlResolver.resolveWsUrl(
                         apiBaseUrl = config.apiUrl,
@@ -187,7 +203,7 @@ constructor(
                     )
                 val updated =
                     reg.copy(
-                        serialNumber = response.serialNumber.ifBlank { normalizedSerial },
+                        serialNumber = enrolledSerial,
                         machineId = response.machineId.ifBlank { response.id },
                         installationId = response.installationId.ifBlank { reg.installationId },
                         wsProtocolUrl = wsUrl,
@@ -205,6 +221,96 @@ constructor(
                 persistRegistrationMetadata(updated)
                 Timber.i("SimpleTelemetry: registered serial=${updated.serialNumber}, auth=stable_secret")
             }
+    }
+
+    /**
+     * Поле serial в UI отличается от сохранённого — отключаем WS, сбрасываем enroll и секрет старого serial.
+     * @return true, если состояние регистрации было изменено.
+     */
+    suspend fun applyUiSerialChange(uiSerial: String): Boolean {
+        val reg = loadMachineRegistration()
+        val normUi = SerialNumberUtils.normalize(uiSerial)
+        val normPersisted = SerialNumberUtils.normalize(reg.serialNumber)
+        if (normUi == normPersisted) {
+            return false
+        }
+        disconnectInternal(persistPause = false)
+        jwtCache.invalidate()
+        if (normPersisted.isNotBlank() && machineSecretStore.hasSecret(normPersisted)) {
+            machineSecretStore.clearSecret(normPersisted)
+        }
+        val serialInStore = normUi.ifBlank { normPersisted }
+        val reset =
+            MachineRegistration.resetAfterSerialChange(
+                reg = reg,
+                serialInStore = serialInStore,
+                newInstallationId = UUID.randomUUID().toString(),
+            )
+        persistRegistrationMetadata(reset)
+        Timber.i(
+            "SimpleTelemetry: serial field changed ($normPersisted → $normUi), enrollment reset",
+        )
+        return true
+    }
+
+    suspend fun connectWithGuard(uiSerial: String): Result<Unit> {
+        SerialNumberUtils.validationMessage(uiSerial)?.let { msg ->
+            return Result.failure(IllegalArgumentException(msg))
+        }
+        val normUi = SerialNumberUtils.normalize(uiSerial)
+        val reg = ensureIdentity(loadMachineRegistration())
+        val normPersisted = SerialNumberUtils.normalize(reg.serialNumber)
+        if (normUi != normPersisted) {
+            return Result.failure(
+                IllegalStateException(
+                    "Серийный номер в поле ($normUi) не совпадает с сохранённым ($normPersisted). " +
+                        "Сначала выполните регистрацию.",
+                ),
+            )
+        }
+        if (!MachineRegistration.isEnrolled(reg)) {
+            return Result.failure(
+                IllegalStateException("Машина не зарегистрирована. Нажмите «Регистрация»."),
+            )
+        }
+        if (!hasAuthMaterial(reg)) {
+            return Result.failure(
+                IllegalStateException(
+                    "Нет секрета для серийного номера $normUi. Выполните регистрацию.",
+                ),
+            )
+        }
+        setUserPaused(false)
+        scheduleConnect("явное подключение")
+        return Result.success(Unit)
+    }
+
+    private suspend fun hasAuthMaterial(reg: MachineRegistration): Boolean {
+        val serial = SerialNumberUtils.normalize(reg.serialNumber)
+        if (machineSecretStore.hasSecret(serial)) {
+            return true
+        }
+        val legacy =
+            reg.machineCredential.ifBlank {
+                if (reg.machineKey.startsWith("mch_")) reg.machineKey else ""
+            }
+        return legacy.isNotBlank()
+    }
+
+    /** Автоподключение и connect после успешной REG — только по сохранённому serial. */
+    fun connectAuto() {
+        appScope.launch {
+            if (isUserPaused()) {
+                Timber.d("SimpleTelemetry: connectAuto пропущен — пауза пользователя")
+                return@launch
+            }
+            setUserPaused(false)
+            scheduleConnect("автоподключение")
+        }
+    }
+
+    fun connect() {
+        connectAuto()
     }
 
     /** Legacy enroll с X-Enrollment-Key — только для обратной совместимости. */
@@ -288,21 +394,38 @@ constructor(
             }
     }
 
-    fun connect() {
-        pausedByUser = false
-        scheduleConnect("явное подключение")
+    fun disconnect() {
+        appScope.launch {
+            disconnectInternal(persistPause = true)
+        }
     }
 
-    fun disconnect() {
-        pausedByUser = true
+    /** Отключить WS без флага «пауза пользователя» (смена serial в поле). */
+    fun disconnectWithoutPause() {
+        appScope.launch {
+            disconnectInternal(persistPause = false)
+        }
+    }
+
+    private suspend fun disconnectInternal(persistPause: Boolean) {
+        if (persistPause) {
+            setUserPaused(true)
+        }
+        jwtCache.invalidate()
         connectJob?.cancel()
         connectJob = null
         wsManager.disconnect()
     }
 
     fun reconnect() {
-        pausedByUser = false
-        scheduleConnect("reconnect")
+        appScope.launch {
+            if (isUserPaused()) {
+                Timber.d("SimpleTelemetry: reconnect пропущен — пауза пользователя")
+                return@launch
+            }
+            setUserPaused(false)
+            scheduleConnect("reconnect")
+        }
     }
 
     private fun scheduleConnect(reason: String) {
@@ -311,14 +434,14 @@ constructor(
         connectJob =
             appScope.launch {
                 lifecycleMutex.withLock {
-                    if (pausedByUser) return@launch
+                    if (isUserPaused()) return@launch
                     connectInternal(reason)
                 }
             }
     }
 
     private suspend fun connectInternal(reason: String) {
-        if (pausedByUser) return
+        if (isUserPaused()) return
         val config = loadTelemetryConfig()
         val reg = ensureIdentity(loadMachineRegistration())
         if (!MachineRegistration.isEnrolled(reg)) {

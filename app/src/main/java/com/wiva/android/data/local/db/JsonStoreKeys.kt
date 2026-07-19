@@ -43,6 +43,9 @@ object JsonStoreKeys {
  /** `"true"` — отправлять capabilities pingPong при подключении WS; по умолчанию выключено. */
     const val TELEMETRY_PING_PONG_ENABLED = "telemetryPingPongEnabled"
 
+ /** `"true"` — пользователь нажал «Отключить WS»; автоподключение при холодном старте не выполняется. */
+    const val TELEMETRY_PAUSED_BY_USER = "telemetryPausedByUser"
+
  /** Плоская база ингредиентов после baseIngredientRequestExportTopic. */
     const val TELEMETRY_BASE_INGREDIENTS = "telemetryBaseIngredients"
 

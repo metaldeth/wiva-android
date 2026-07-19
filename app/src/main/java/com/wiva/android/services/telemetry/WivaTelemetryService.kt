@@ -138,8 +138,7 @@ constructor(
     val invalidLoyaltyCardScans: SharedFlow<Unit> = _invalidLoyaltyCardScans.asSharedFlow()
 
  /**
- * Пока true — не поднимать WS (кнопка «Отключить»). После перезапуска приложения сбрасывается;
- *.connect`.
+ * Пока true — не поднимать WS (кнопка «Отключить»). Значение персистится в [JsonStoreKeys.TELEMETRY_PAUSED_BY_USER].
  */
     @Volatile
     private var telemetryPausedByUser: Boolean = false
@@ -156,6 +155,8 @@ constructor(
 
     init {
         scope.launch {
+            telemetryPausedByUser =
+                configRepository.get(JsonStoreKeys.TELEMETRY_PAUSED_BY_USER) == "true"
             loadTelemetryConfig()
             launch {
                 mvpCoordinator.connectionState.collect { state ->
@@ -277,13 +278,106 @@ constructor(
 
     suspend fun reserveFreeSerial(): Result<String> = mvpCoordinator.reserveFreeSerial()
 
-    fun connect() {
-        telemetryPausedByUser = false
+    suspend fun applyUiSerialChange(uiSerial: String): Boolean =
+        if (cachedUseMvpProtocol) {
+            mvpCoordinator.applyUiSerialChange(uiSerial)
+        } else {
+            applyLegacyUiSerialChange(uiSerial)
+        }
+
+    private suspend fun applyLegacyUiSerialChange(uiSerial: String): Boolean {
+        val reg = loadMachineRegistration()
+        val normUi = com.wiva.android.data.remote.telemetry.mvp.SerialNumberUtils.normalize(uiSerial)
+        val normPersisted =
+            com.wiva.android.data.remote.telemetry.mvp.SerialNumberUtils.normalize(reg.serialNumber)
+        if (normUi == normPersisted) {
+            return false
+        }
+        disconnectInternalPersistPause(persistUserPause = false)
+        val serialInStore = normUi.ifBlank { normPersisted }
+        saveMachineRegistration(
+            MachineRegistration.resetAfterSerialChange(
+                reg = reg,
+                serialInStore = serialInStore,
+                newInstallationId = java.util.UUID.randomUUID().toString(),
+            ),
+        )
+        return true
+    }
+
+    suspend fun connectWithGuard(uiSerial: String): Result<Unit> {
         scheduledAutoConnect?.cancel()
         scheduledAutoConnect = null
+        if (cachedUseMvpProtocol) {
+            return mvpCoordinator.connectWithGuard(uiSerial)
+        }
+        return connectLegacyWithGuard(uiSerial)
+    }
+
+    private suspend fun connectLegacyWithGuard(uiSerial: String): Result<Unit> {
+        com.wiva.android.data.remote.telemetry.mvp.SerialNumberUtils.validationMessage(uiSerial)?.let { msg ->
+            return Result.failure(IllegalArgumentException(msg))
+        }
+        val normUi = com.wiva.android.data.remote.telemetry.mvp.SerialNumberUtils.normalize(uiSerial)
+        val reg = loadMachineRegistration()
+        val normPersisted =
+            com.wiva.android.data.remote.telemetry.mvp.SerialNumberUtils.normalize(reg.serialNumber)
+        if (normUi != normPersisted) {
+            return Result.failure(
+                IllegalStateException(
+                    "Серийный номер в поле ($normUi) не совпадает с сохранённым ($normPersisted). " +
+                        "Сначала выполните регистрацию.",
+                ),
+            )
+        }
+        if (!MachineRegistration.isEnrolled(reg)) {
+            return Result.failure(
+                IllegalStateException("Машина не зарегистрирована. Нажмите «Регистрация»."),
+            )
+        }
+        if (reg.machineKey.isBlank()) {
+            return Result.failure(
+                IllegalStateException(
+                    "Нет секрета для серийного номера $normUi. Выполните регистрацию.",
+                ),
+            )
+        }
+        setTelemetryPausedByUser(false)
+        wsManager.disconnect()
+        connectWithLoadedCredentials("явное подключение")
+        return Result.success(Unit)
+    }
+
+    private suspend fun setTelemetryPausedByUser(paused: Boolean) {
+        telemetryPausedByUser = paused
+        configRepository.set(
+            JsonStoreKeys.TELEMETRY_PAUSED_BY_USER,
+            if (paused) "true" else "false",
+        )
+    }
+
+    private suspend fun disconnectInternalPersistPause(persistUserPause: Boolean = true) {
+        if (persistUserPause) {
+            setTelemetryPausedByUser(true)
+        }
+        if (cachedUseMvpProtocol) {
+            if (persistUserPause) {
+                mvpCoordinator.disconnect()
+            } else {
+                mvpCoordinator.disconnectWithoutPause()
+            }
+        } else {
+            wsManager.disconnect()
+        }
+    }
+
+    fun connect() {
         scope.launch {
+            setTelemetryPausedByUser(false)
+            scheduledAutoConnect?.cancel()
+            scheduledAutoConnect = null
             if (cachedUseMvpProtocol) {
-                mvpCoordinator.connect()
+                mvpCoordinator.connectAuto()
             } else {
                 wsManager.disconnect()
                 connectWithLoadedCredentials("явное подключение")
@@ -292,23 +386,18 @@ constructor(
     }
 
     fun disconnect() {
-        telemetryPausedByUser = true
         scheduledAutoConnect?.cancel()
         scheduledAutoConnect = null
         scope.launch {
-            if (cachedUseMvpProtocol) {
-                mvpCoordinator.disconnect()
-            } else {
-                wsManager.disconnect()
-            }
+            disconnectInternalPersistPause()
         }
     }
 
     fun reconnect() {
-        telemetryPausedByUser = false
-        scheduledAutoConnect?.cancel()
-        scheduledAutoConnect = null
         scope.launch {
+            setTelemetryPausedByUser(false)
+            scheduledAutoConnect?.cancel()
+            scheduledAutoConnect = null
             if (cachedUseMvpProtocol) {
                 mvpCoordinator.reconnect()
             } else {

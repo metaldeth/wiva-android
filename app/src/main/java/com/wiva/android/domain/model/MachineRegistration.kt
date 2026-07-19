@@ -79,5 +79,24 @@ data class MachineRegistration(
             reg.enrolled ||
                 (reg.isRegistered &&
                     (reg.authScheme == AUTH_SCHEME_STABLE_SECRET || reg.machineCredential.isNotBlank()))
+
+        /** Сброс enroll после смены serial в UI: сохраняем regKey, новый installationId. */
+        fun resetAfterSerialChange(
+            reg: MachineRegistration,
+            serialInStore: String,
+            newInstallationId: String,
+        ): MachineRegistration =
+            reg.copy(
+                serialNumber = serialInStore,
+                machineId = "",
+                machineKey = "",
+                machineCredential = "",
+                authScheme = "",
+                isRegistered = false,
+                enrolled = false,
+                reservationToken = "",
+                reservationExpiresAt = "",
+                installationId = newInstallationId,
+            )
     }
 }

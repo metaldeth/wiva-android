@@ -161,6 +161,9 @@ data class ServiceUiState(
     val telemetrySerialConflict: Boolean = false,
     val telemetryRebindConfirmVisible: Boolean = false,
     val telemetrySerial: String = "",
+    val telemetryPersistedSerial: String = "",
+    val telemetryEnrolled: Boolean = false,
+    val telemetrySerialNeedsRegistration: Boolean = false,
     val telemetryBusy: Boolean = false,
     val telemetryBanner: String? = null,
     val telemetryBannerIsError: Boolean = false,
@@ -1117,6 +1120,9 @@ constructor(
                             configRepository.get(JsonStoreKeys.TELEMETRY_PING_PONG_ENABLED) == "true",
                         telemetryRegKey = r.regKey,
                         telemetrySerial = r.serialNumber,
+                        telemetryPersistedSerial = r.serialNumber,
+                        telemetryEnrolled = com.wiva.android.domain.model.MachineRegistration.isEnrolled(r),
+                        telemetrySerialNeedsRegistration = false,
                         telemetrySerialConflict = false,
                         telemetryRebindConfirmVisible = false,
                     )
@@ -1244,6 +1250,32 @@ constructor(
                 telemetryRebindConfirmVisible = false,
             )
         }
+        viewModelScope.launch {
+            runCatching {
+                val changed = telemetryService.applyUiSerialChange(v)
+                if (changed) {
+                    val r = telemetryService.loadMachineRegistration()
+                    _state.update {
+                        it.copy(
+                            telemetryPersistedSerial = r.serialNumber,
+                            telemetryEnrolled = com.wiva.android.domain.model.MachineRegistration.isEnrolled(r),
+                            telemetrySerialNeedsRegistration = true,
+                            telemetryBanner = "Серийный номер изменён — требуется повторная регистрация",
+                            telemetryBannerIsError = false,
+                        )
+                    }
+                } else {
+                    _state.update {
+                        it.copy(
+                            telemetrySerialNeedsRegistration =
+                                !it.telemetryEnrolled &&
+                                SerialNumberUtils.normalize(it.telemetrySerial) ==
+                                    SerialNumberUtils.normalize(it.telemetryPersistedSerial),
+                        )
+                    }
+                }
+            }.onFailure { Timber.e(it, "setTelemetrySerial") }
+        }
     }
 
     fun requestTelemetryFreeSerial() {
@@ -1321,6 +1353,8 @@ constructor(
                 _state.update {
                     it.copy(
                         telemetryBusy = false,
+                        telemetryEnrolled = true,
+                        telemetrySerialNeedsRegistration = false,
                         telemetryBanner = "Регистрация OK; запущено подключение WS",
                         telemetryBannerIsError = false,
                     )
@@ -1381,13 +1415,58 @@ constructor(
 
     fun connectTelemetry() {
         viewModelScope.launch {
-            saveTelemetryEndpointsInternal()
-            telemetryService.connect()
+            _state.update { it.copy(telemetryBusy = true, telemetryBanner = null) }
+            runCatching {
+                saveTelemetryEndpointsInternal()
+                telemetryService.connectWithGuard(_state.value.telemetrySerial).getOrThrow()
+                _state.update {
+                    it.copy(
+                        telemetryBusy = false,
+                        telemetryBanner = "Подключение WS…",
+                        telemetryBannerIsError = false,
+                    )
+                }
+            }.onFailure { e ->
+                Timber.e(e, "connectTelemetry")
+                _state.update {
+                    it.copy(
+                        telemetryBusy = false,
+                        telemetryBanner = e.message ?: "Не удалось подключить WS",
+                        telemetryBannerIsError = true,
+                    )
+                }
+            }
         }
     }
 
     fun disconnectTelemetry() {
         telemetryService.disconnect()
+        _state.update {
+            it.copy(
+                telemetryBanner = "WebSocket отключён. Для повторного подключения нажмите «Подключить WS».",
+                telemetryBannerIsError = false,
+            )
+        }
+    }
+
+    fun telemetryCanConnect(state: ServiceUiState): Boolean {
+        if (state.telemetryBusy || state.telemetrySerial.isBlank()) {
+            return false
+        }
+        val normUi = SerialNumberUtils.normalize(state.telemetrySerial)
+        val normPersisted = SerialNumberUtils.normalize(state.telemetryPersistedSerial)
+        if (normUi != normPersisted) {
+            return false
+        }
+        return state.telemetryEnrolled && !state.telemetrySerialNeedsRegistration
+    }
+
+    fun telemetrySerialMismatch(state: ServiceUiState): Boolean {
+        val normUi = SerialNumberUtils.normalize(state.telemetrySerial)
+        val normPersisted = SerialNumberUtils.normalize(state.telemetryPersistedSerial)
+        return normUi.isNotBlank() &&
+            normPersisted.isNotBlank() &&
+            normUi != normPersisted
     }
 
     fun clearNetworkTrafficLog() {

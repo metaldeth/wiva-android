@@ -51,8 +51,8 @@ android {
         applicationId = "com.wiva.android"
         minSdk = 25
         targetSdk = 35
-        versionCode = 171
-        versionName = "12.05.26.13"
+        versionCode = 172
+        versionName = "12.05.26.14"
 
         testInstrumentationRunner = "com.wiva.android.WivaHiltTestRunner"
 
@@ -71,8 +71,7 @@ android {
     buildTypes {
         debug {
             val releaseSigning = signingConfigs.getByName("release")
-            signingConfig =
-                releaseSigning.storeFile?.let { releaseSigning }
+            releaseSigning.storeFile?.let { signingConfig = releaseSigning }
         }
         release {
             signingConfig = signingConfigs.getByName("release")

@@ -39,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import com.wiva.android.data.remote.telemetry.mvp.SerialNumberUtils
 import com.wiva.android.ui.screens.service.tabs.WivaControllerDebugTab
 import com.wiva.android.ui.screens.service.tabs.WivaIdleTab
 import com.wiva.android.ui.screens.service.tabs.WivaSyrupCalibrationTab
@@ -307,6 +308,23 @@ private fun WivaTelemetryConnectionTab(
             onValueChange = viewModel::setTelemetrySerial,
             testTag = ServiceMenuTestTags.TELEMETRY_SERIAL_INPUT,
         )
+        if (viewModel.telemetrySerialMismatch(state)) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "В поле: ${SerialNumberUtils.normalize(state.telemetrySerial)} · " +
+                    "сохранён: ${SerialNumberUtils.normalize(state.telemetryPersistedSerial)}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        } else if (state.telemetrySerialNeedsRegistration || !state.telemetryEnrolled) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Требуется регистрация для серийного номера " +
+                    SerialNumberUtils.normalize(state.telemetrySerial).ifBlank { "—" },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         OutlinedButton(
             onClick = { viewModel.requestTelemetryFreeSerial() },
             modifier =
@@ -390,7 +408,7 @@ private fun WivaTelemetryConnectionTab(
                     Modifier
                         .weight(1f)
                         .testTag(ServiceMenuTestTags.TELEMETRY_CONNECT_WS),
-                enabled = !state.telemetryBusy && state.telemetrySerial.isNotBlank(),
+                enabled = viewModel.telemetryCanConnect(state),
             ) {
                 Text("Подключить WS")
             }
