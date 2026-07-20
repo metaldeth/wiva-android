@@ -238,7 +238,8 @@ constructor(
         cell.productUuid != null ||
             cell.volume != 0 ||
             cell.dosage1Price != null ||
-            cell.dosage2Price != null
+            cell.dosage2Price != null ||
+            cell.conversionFactor != TelemetryCell.DEFAULT_CONVERSION_FACTOR
 
     private companion object {
         const val POST_SCHEMA_CALIBRATION_REPORT_DELAY_MS = 1_500L

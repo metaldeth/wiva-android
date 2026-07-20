@@ -43,7 +43,7 @@ class TelemetryCellsMessageCodecTest {
     }
 
     @Test
-    fun encodeContentReport_defaultConversionFactor_omittedFromJson() {
+    fun encodeContentReport_alwaysIncludesConversionFactor() {
         val cell =
             TelemetryCell(
                 uuid = "u1",
@@ -55,7 +55,7 @@ class TelemetryCellsMessageCodecTest {
         val payloadJson = codec.encodeContentReportPayload(listOf(cell))
         val firstCell = codec.contentReportPayloadObject(payloadJson)["cells"]!!.toString()
 
-        assertFalse(firstCell.contains("conversionFactor"))
+        assertTrue(firstCell.contains("\"conversionFactor\":${TelemetryCell.DEFAULT_CONVERSION_FACTOR}"))
     }
 
     @Test

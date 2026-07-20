@@ -167,8 +167,7 @@ constructor() {
                     maxVolume = cell.maxVolume,
                     dosage1Price = cell.dosage1Price,
                     dosage2Price = cell.dosage2Price,
-                    conversionFactor =
-                        cell.conversionFactor.takeIf { it != TelemetryCell.DEFAULT_CONVERSION_FACTOR },
+                    conversionFactor = cell.conversionFactor,
                 )
             }
         return json.encodeToString(
