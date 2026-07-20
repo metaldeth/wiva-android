@@ -151,6 +151,7 @@ constructor(
                     expectedTimeSec = preparingTime,
                     saleTotalPriceRub = saleTotalPriceRub,
                     salePayMethod = salePayMethod,
+                    concentrationRatio = concentrationRatio,
                 )
 
             emit(PreparingState.Begin(preparingTime))
@@ -197,6 +198,7 @@ constructor(
                 volumeMl = context.volumeMl,
                 amountRub = context.saleTotalPriceRub,
                 payMethod = resolveSalePayMethod(context.salePayMethod),
+                concentrationRatio = context.concentrationRatio,
             )
         runCatching {
             salesSyncCoordinator.enqueueAndTrySend(pendingSale)
@@ -247,6 +249,7 @@ constructor(
         val expectedTimeSec: Int,
         val saleTotalPriceRub: Double,
         val salePayMethod: String?,
+        val concentrationRatio: Double,
     )
 
     companion object {

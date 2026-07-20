@@ -19,6 +19,7 @@ class TelemetrySalesMessageCodecTest {
                 volumeMl = 200,
                 amountRub = 150.0,
                 payMethod = "CARD",
+                concentrationRatio = 1.1,
             )
 
         // when
@@ -31,11 +32,33 @@ class TelemetrySalesMessageCodecTest {
         assertEquals(200, payload["volumeMl"]!!.jsonPrimitive.int)
         assertEquals(150.0, payload["amountRub"]!!.jsonPrimitive.content.toDouble(), 0.0)
         assertEquals("CARD", payload["payMethod"]!!.jsonPrimitive.content)
+        assertEquals(1.1, payload["concentrationRatio"]!!.jsonPrimitive.content.toDouble(), 0.0)
         assertNotNull(payload["saleId"])
         assertNotNull(payload["soldAt"])
         assertNotNull(payload["drinkId"])
         assertNotNull(payload["volumeMl"])
         assertNotNull(payload["amountRub"])
         assertNotNull(payload["payMethod"])
+        assertNotNull(payload["concentrationRatio"])
+    }
+
+    @Test
+    fun `encodeSaleReportPayload defaults concentrationRatio to one when missing in pending sale`() {
+        // given
+        val sale =
+            PendingSale(
+                saleId = "11111111-2222-3333-4444-555555555555",
+                soldAt = "2026-07-20T12:34:56.789Z",
+                drinkId = 20,
+                volumeMl = 200,
+                amountRub = 150.0,
+                payMethod = "CARD",
+            )
+
+        // when
+        val payload = TelemetrySalesMessageCodec.encodeSaleReportPayload(sale)
+
+        // then
+        assertEquals(1.0, payload["concentrationRatio"]!!.jsonPrimitive.content.toDouble(), 0.0)
     }
 }

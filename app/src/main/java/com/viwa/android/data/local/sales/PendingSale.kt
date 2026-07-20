@@ -16,6 +16,7 @@ data class PendingSale(
     val volumeMl: Int,
     val amountRub: Double,
     val payMethod: String,
+    val concentrationRatio: Double? = null,
     val attempts: Int = 0,
     val nextRetryAtMillis: Long = 0L,
     val status: PendingSaleStatus = PendingSaleStatus.PENDING,

@@ -74,6 +74,7 @@ class TelemetrySalesSyncCoordinatorTest {
         // then
         coVerify(exactly = 1) { wsManager.sendEnvelope("sale.report", any()) }
         assertEquals("sale-1", payloadSlot.captured["saleId"]?.toString()?.trim('"'))
+        assertEquals("1.1", payloadSlot.captured["concentrationRatio"]?.toString()?.trim('"'))
     }
 
     private fun sampleSale(): PendingSale =
@@ -84,6 +85,7 @@ class TelemetrySalesSyncCoordinatorTest {
             volumeMl = 200,
             amountRub = 150.0,
             payMethod = "CARD",
+            concentrationRatio = 1.1,
         )
 
     private class FakeConfigRepository : ConfigRepository {

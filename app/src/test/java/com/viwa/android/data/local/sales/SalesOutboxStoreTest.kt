@@ -35,6 +35,33 @@ class SalesOutboxStoreTest {
         assertEquals(1, decoded.size)
         assertEquals("sale-1", decoded.first().saleId)
         assertEquals(PendingSaleStatus.PENDING, decoded.first().status)
+        assertEquals(0.9, decoded.first().concentrationRatio!!, 0.0)
+    }
+
+    @Test
+    fun `load decodes legacy pending sales without concentrationRatio as null`() = runTest {
+        // given
+        val legacyJson =
+            """
+            [
+              {
+                "saleId": "legacy-sale",
+                "soldAt": "2026-07-20T12:00:00.000Z",
+                "drinkId": 20,
+                "volumeMl": 200,
+                "amountRub": 150.0,
+                "payMethod": "CARD"
+              }
+            ]
+            """.trimIndent()
+        configRepository.setJson(JsonStoreKeys.PENDING_SALES, legacyJson)
+
+        // when
+        val pending = store.listPending(nowMillis = Long.MAX_VALUE)
+
+        // then
+        assertEquals(1, pending.size)
+        assertNull(pending.first().concentrationRatio)
     }
 
     @Test
@@ -89,6 +116,7 @@ class SalesOutboxStoreTest {
             volumeMl = 200,
             amountRub = 150.0,
             payMethod = "CARD",
+            concentrationRatio = 0.9,
         )
 
     private class FakeConfigRepository : ConfigRepository {
