@@ -137,7 +137,15 @@ constructor(
                             MachineCredentialGenerator.generate()
                         },
                     authScheme = MachineRegistration.AUTH_SCHEME_LEGACY_CREDENTIAL,
+                    isRegistered = true,
+                    enrolled = true,
                 )
+        } else if (
+            updated.authScheme == MachineRegistration.AUTH_SCHEME_LEGACY_CREDENTIAL &&
+            updated.machineCredential.isNotBlank() &&
+            (!updated.isRegistered || !updated.enrolled)
+        ) {
+            updated = updated.copy(isRegistered = true, enrolled = true)
         }
         if (updated != reg) {
             configRepository.setJson(

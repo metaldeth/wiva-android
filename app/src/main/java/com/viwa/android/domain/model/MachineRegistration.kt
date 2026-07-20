@@ -54,7 +54,11 @@ data class MachineRegistration(
                 } else {
                     ""
                 }
-            val registered = reg.enrolled || reg.isRegistered
+            // Частичный JsonStore (mch_ + legacy_credential без флагов) — иначе connect
+            // падает на «registration required» и WS-reconnect не стартует.
+            val hasUsableLegacyCredential =
+                authScheme == AUTH_SCHEME_LEGACY_CREDENTIAL && credential.isNotBlank()
+            val registered = reg.enrolled || reg.isRegistered || hasUsableLegacyCredential
             val serial = reg.serialNumber.ifBlank { "E-01" }.let {
                 if (it == "E-01" && registered) it else it
             }
@@ -70,10 +74,16 @@ data class MachineRegistration(
             )
         }
 
-        fun isEnrolled(reg: MachineRegistration): Boolean =
-            reg.enrolled ||
-                (reg.isRegistered &&
-                    (reg.authScheme == AUTH_SCHEME_STABLE_SECRET || reg.machineCredential.isNotBlank()))
+        fun isEnrolled(reg: MachineRegistration): Boolean {
+            if (reg.enrolled) return true
+            if (reg.authScheme == AUTH_SCHEME_LEGACY_CREDENTIAL &&
+                (reg.machineCredential.isNotBlank() || reg.machineKey.startsWith("mch_"))
+            ) {
+                return true
+            }
+            return reg.isRegistered &&
+                (reg.authScheme == AUTH_SCHEME_STABLE_SECRET || reg.machineCredential.isNotBlank())
+        }
 
         /** Сброс enroll после смены serial в UI: сохраняем regKey, новый installationId. */
         fun resetAfterSerialChange(
