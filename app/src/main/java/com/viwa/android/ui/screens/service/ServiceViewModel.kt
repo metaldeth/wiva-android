@@ -17,6 +17,7 @@ import com.viwa.android.hardware.controller.ControllerGateway
 import com.viwa.android.hardware.controller.ControllerHardwareManager
 import com.viwa.android.hardware.controller.ViwaControllerTrafficLogger
 import com.viwa.android.hardware.controller.ViwaWaterCounterService
+import com.viwa.android.hardware.controller.FlowTemperatureStore
 import com.viwa.android.hardware.controller.decodeFlowTemperatureByte
 import com.viwa.android.hardware.controller.RequestCommand
 import com.viwa.android.hardware.controller.ResponseCommand
@@ -257,6 +258,7 @@ constructor(
     private val configRepository: ConfigRepository,
     private val updateRepository: UpdateRepository,
     private val controllerGateway: ControllerGateway,
+    private val flowTemperatureStore: FlowTemperatureStore,
     private val controllerHardware: ControllerHardwareManager,
     private val drinkPreparing: ViwaDrinkPreparingService,
     private val waterCounter: ViwaWaterCounterService,
@@ -400,6 +402,7 @@ constructor(
                         if (ev.payload.size >= 2) {
                             val t0 = decodeFlowTemperatureByte(ev.payload[0].toInt() and 0xff)
                             val t1 = decodeFlowTemperatureByte(ev.payload[1].toInt() and 0xff)
+                            flowTemperatureStore.update(t0, t1)
                             _state.update {
                                 it.copy(
                                     flowTemperatureSensor0C = t0,

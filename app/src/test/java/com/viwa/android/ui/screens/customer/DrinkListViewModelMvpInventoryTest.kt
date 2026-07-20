@@ -15,6 +15,7 @@ import com.viwa.android.domain.repository.TelemetryCellsRepository
 import com.viwa.android.domain.usecase.CheckSBPStatusUseCase
 import com.viwa.android.domain.usecase.GetSBPLinkUseCase
 import com.viwa.android.hardware.controller.ControllerGateway
+import com.viwa.android.hardware.controller.FlowTemperatureStore
 import com.viwa.android.hardware.controller.ControllerTrafficEntry
 import com.viwa.android.hardware.controller.ViwaControllerTrafficLogger
 import com.viwa.android.hardware.controller.ControllerResponseEvent
@@ -155,6 +156,7 @@ class DrinkListViewModelMvpInventoryTest {
             telemetryCellsRepository,
             preparing,
             gateway,
+            FlowTemperatureStore(),
             aqsi,
             sbpNotify,
             telemetry,

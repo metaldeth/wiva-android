@@ -28,6 +28,7 @@ import com.viwa.android.domain.repository.TelemetryCellsRepository
 import com.viwa.android.domain.usecase.CheckSBPStatusUseCase
 import com.viwa.android.domain.usecase.GetSBPLinkUseCase
 import com.viwa.android.hardware.controller.ControllerGateway
+import com.viwa.android.hardware.controller.FlowTemperatureStore
 import com.viwa.android.hardware.controller.decodeFlowTemperatureByte
 import com.viwa.android.hardware.controller.RequestCommand
 import com.viwa.android.hardware.controller.ResponseCommand
@@ -155,6 +156,7 @@ constructor(
     private val telemetryCellsRepository: TelemetryCellsRepository,
     private val preparingManager: PreparingManager,
     private val controllerGateway: ControllerGateway,
+    private val flowTemperatureStore: FlowTemperatureStore,
     private val aqsiUsbPaymentManager: AqsiUsbPaymentManager,
     private val controllerSbpNotifyService: ControllerSbpNotifyService,
     private val telemetryService: ViwaTelemetryService,
@@ -372,6 +374,7 @@ constructor(
                     val t0 = decodeFlowTemperatureByte(ev.payload[0].toInt() and 0xff)
                     val t1 = decodeFlowTemperatureByte(ev.payload[1].toInt() and 0xff)
                     _state.update { it.copy(temperature0C = t0, temperature1C = t1) }
+                    flowTemperatureStore.update(t0, t1)
                     if (t0 != lastSentT0 || t1 != lastSentT1) {
                         lastSentT0 = t0
                         lastSentT1 = t1

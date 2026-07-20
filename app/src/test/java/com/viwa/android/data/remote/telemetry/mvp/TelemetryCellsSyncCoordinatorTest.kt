@@ -3,6 +3,7 @@ package com.viwa.android.data.remote.telemetry.mvp
 import com.viwa.android.data.remote.telemetry.mvp.cells.CellVolumeUpdateWire
 import com.viwa.android.data.remote.telemetry.mvp.cells.TelemetryCellsMessageCodec
 import com.viwa.android.data.repository.ConfigRepository
+import com.viwa.android.hardware.controller.FlowTemperatureStore
 import com.viwa.android.data.repository.TelemetryCellsRepositoryImpl
 import com.viwa.android.domain.model.TelemetryCell
 import com.viwa.android.domain.model.TelemetryCellsSnapshot
@@ -272,6 +273,7 @@ class TelemetryCellsSyncCoordinatorTest {
                 configRepository = FakeConfigRepository(),
                 machineSecretStore = mockk(relaxed = true),
                 jwtCache = mockk(relaxed = true),
+                flowTemperatureStore = FlowTemperatureStore(),
                 appScope = this,
             )
         telemetryCoordinator.saveTelemetryConfig(TelemetryConfig())

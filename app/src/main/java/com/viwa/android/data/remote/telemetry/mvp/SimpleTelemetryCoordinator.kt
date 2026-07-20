@@ -9,6 +9,7 @@ import com.viwa.android.data.repository.ConfigRepository
 import com.viwa.android.di.AppIoScope
 import com.viwa.android.domain.model.MachineRegistration
 import com.viwa.android.domain.model.TelemetryConfig
+import com.viwa.android.hardware.controller.FlowTemperatureStore
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -33,6 +34,7 @@ constructor(
     private val configRepository: ConfigRepository,
     private val machineSecretStore: MachineSecretStore,
     private val jwtCache: MachineJwtCache,
+    private val flowTemperatureStore: FlowTemperatureStore,
     @AppIoScope private val appScope: CoroutineScope,
 ) {
     init {
@@ -449,7 +451,7 @@ constructor(
         wsManager.connect(
             wsUrl = wsUrl,
             tokenProvider = { resolveWsBearerToken(config, reg) },
-            temperatureProvider = { null },
+            temperatureProvider = { flowTemperatureStore.temperatureCForTelemetry() },
             onAuthFailure = { jwtCache.invalidate() },
         )
     }

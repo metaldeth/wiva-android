@@ -33,6 +33,7 @@ import com.viwa.android.domain.usecase.GetSBPLinkUseCase
 import com.viwa.android.hardware.controller.ControllerGateway
 import com.viwa.android.hardware.controller.ControllerResponseEvent
 import com.viwa.android.hardware.controller.ControllerTrafficEntry
+import com.viwa.android.hardware.controller.FlowTemperatureStore
 import com.viwa.android.hardware.controller.ViwaControllerTrafficLogger
 import com.viwa.android.services.payment.CardPaymentEventLogger
 import com.viwa.android.services.payment.CardPaymentOrchestrator
@@ -208,6 +209,7 @@ class DrinkListViewModelTask05IntegrationTest {
             cellsRepo,
             preparingManager,
             gw,
+            FlowTemperatureStore(),
             aqsi,
             sbpNotify,
             telemetryService,
@@ -378,6 +380,7 @@ class DrinkListViewModelTask05IntegrationTest {
             cellsRepo,
             preparing,
             gw,
+            FlowTemperatureStore(),
             usb,
             sbpNotify,
             telemetryService,

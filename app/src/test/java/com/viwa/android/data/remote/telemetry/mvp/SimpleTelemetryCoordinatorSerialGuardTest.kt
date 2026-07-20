@@ -2,6 +2,7 @@ package com.viwa.android.data.remote.telemetry.mvp
 
 import com.viwa.android.data.local.db.JsonStoreKeys
 import com.viwa.android.data.local.security.InMemoryMachineSecretStore
+import com.viwa.android.hardware.controller.FlowTemperatureStore
 import com.viwa.android.data.repository.ConfigRepository
 import com.viwa.android.domain.model.MachineRegistration
 import com.viwa.android.domain.model.TelemetryConfig
@@ -163,6 +164,7 @@ class SimpleTelemetryCoordinatorSerialGuardTest {
             configRepository = configRepository,
             machineSecretStore = secretStore,
             jwtCache = jwtCache,
+            flowTemperatureStore = FlowTemperatureStore(),
             appScope = appScope,
         )
 

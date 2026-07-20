@@ -2,6 +2,7 @@ package com.viwa.android.data.remote.telemetry.mvp
 
 import com.viwa.android.data.local.db.JsonStoreKeys
 import com.viwa.android.data.local.security.InMemoryMachineSecretStore
+import com.viwa.android.hardware.controller.FlowTemperatureStore
 import com.viwa.android.data.repository.ConfigRepository
 import com.viwa.android.domain.model.MachineRegistration
 import io.mockk.coEvery
@@ -28,6 +29,7 @@ class SimpleTelemetryIdentityPersistenceTest {
                 configRepository = configRepository,
                 machineSecretStore = InMemoryMachineSecretStore(),
                 jwtCache = MachineJwtCache(SystemEpochMillisClock()),
+                flowTemperatureStore = FlowTemperatureStore(),
                 appScope = this,
             )
         // when

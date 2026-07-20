@@ -2,6 +2,7 @@ package com.viwa.android.data.remote.telemetry.mvp
 
 import com.viwa.android.data.local.db.JsonStoreKeys
 import com.viwa.android.data.local.security.InMemoryMachineSecretStore
+import com.viwa.android.hardware.controller.FlowTemperatureStore
 import com.viwa.android.data.network.NetworkTrafficLogger
 import com.viwa.android.data.repository.ConfigRepository
 import com.viwa.android.domain.model.MachineRegistration
@@ -59,6 +60,7 @@ class SimpleTelemetryCoordinatorLifecycleTest {
                 configRepository = configRepository,
                 machineSecretStore = secretStore,
                 jwtCache = MachineJwtCache(SystemEpochMillisClock()),
+                flowTemperatureStore = FlowTemperatureStore(),
                 appScope = this,
             )
         coordinator.connect()

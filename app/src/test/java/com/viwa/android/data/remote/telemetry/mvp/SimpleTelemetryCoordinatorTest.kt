@@ -5,6 +5,7 @@ import com.viwa.android.data.local.security.InMemoryMachineSecretStore
 import com.viwa.android.data.network.NetworkTrafficLogger
 import com.viwa.android.data.repository.ConfigRepository
 import com.viwa.android.domain.model.TelemetryConfig
+import com.viwa.android.hardware.controller.FlowTemperatureStore
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.just
@@ -83,6 +84,7 @@ class SimpleTelemetryCoordinatorTest {
                 configRepository = configRepository,
                 machineSecretStore = machineSecretStore,
                 jwtCache = jwtCache,
+                flowTemperatureStore = FlowTemperatureStore(),
                 appScope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob()),
             )
     }
@@ -209,6 +211,7 @@ class SimpleTelemetryCoordinatorTest {
                 configRepository = configRepository,
                 machineSecretStore = machineSecretStore,
                 jwtCache = jwtCache,
+                flowTemperatureStore = FlowTemperatureStore(),
                 appScope = this,
             )
         // when
@@ -247,6 +250,7 @@ class SimpleTelemetryCoordinatorTest {
                 configRepository = configRepository,
                 machineSecretStore = machineSecretStore,
                 jwtCache = jwtCache,
+                flowTemperatureStore = FlowTemperatureStore(),
                 appScope = this,
             )
         localCoordinator.saveTelemetryConfig(TelemetryConfig())
