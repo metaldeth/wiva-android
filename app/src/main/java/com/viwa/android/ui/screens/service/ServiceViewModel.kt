@@ -29,6 +29,8 @@ import com.viwa.android.data.remote.telemetry.ConnectionState
 import com.viwa.android.data.remote.telemetry.mvp.MvpTelemetryUrlResolver
 import com.viwa.android.data.remote.telemetry.mvp.TelemetryCellsSyncCoordinator
 import com.viwa.android.data.remote.telemetry.mvp.cells.CellVolumeUpdateWire
+import com.viwa.android.data.remote.telemetry.mvp.RegistrationKeyException
+import com.viwa.android.data.remote.telemetry.mvp.RebindNotAllowedException
 import com.viwa.android.data.remote.telemetry.mvp.SerialAlreadyBoundException
 import com.viwa.android.data.remote.telemetry.mvp.SerialNumberUtils
 import com.viwa.android.domain.model.TelemetryConfig
@@ -1417,6 +1419,26 @@ constructor(
                                 telemetryBanner =
                                     "Serial ${conflict.serialNumber} уже привязан к другой плате. " +
                                         "Подтвердите перепривязку (rebind) для замены credential.",
+                                telemetryBannerIsError = true,
+                            )
+                        }
+                    e is RebindNotAllowedException || e.cause is RebindNotAllowedException ->
+                        _state.update {
+                            it.copy(
+                                telemetryBusy = false,
+                                telemetryBanner = (e as? RebindNotAllowedException ?: e.cause as RebindNotAllowedException)
+                                    ?.message
+                                    ?: "Перепривязка запрещена.",
+                                telemetryBannerIsError = true,
+                            )
+                        }
+                    e is RegistrationKeyException || e.cause is RegistrationKeyException ->
+                        _state.update {
+                            it.copy(
+                                telemetryBusy = false,
+                                telemetryBanner = (e as? RegistrationKeyException ?: e.cause as RegistrationKeyException)
+                                    ?.message
+                                    ?: "Ошибка ключа регистрации.",
                                 telemetryBannerIsError = true,
                             )
                         }

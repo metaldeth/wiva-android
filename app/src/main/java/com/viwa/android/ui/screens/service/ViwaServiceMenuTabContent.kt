@@ -408,19 +408,40 @@ private fun ViwaTelemetryConnectionTab(
                 }
             }
         }
+        if (state.telemetryEnrolled && !state.telemetrySerialNeedsRegistration) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Автомат уже зарегистрирован — для повторного подключения используйте «Подключить WS».",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
         Row(modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = { viewModel.registerTelemetryMachine() },
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .testTag(ServiceMenuTestTags.TELEMETRY_REGISTER),
-                enabled =
-                    !state.telemetryBusy &&
-                        state.telemetrySerial.isNotBlank() &&
-                        state.telemetryRegKey.isNotBlank(),
-            ) {
-                Text("Регистрация")
+            if (state.telemetryEnrolled && !state.telemetrySerialNeedsRegistration) {
+                OutlinedButton(
+                    onClick = { viewModel.registerTelemetryMachine() },
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .testTag(ServiceMenuTestTags.TELEMETRY_REGISTER),
+                    enabled = false,
+                ) {
+                    Text("Регистрация")
+                }
+            } else {
+                Button(
+                    onClick = { viewModel.registerTelemetryMachine() },
+                    modifier =
+                        Modifier
+                            .weight(1f)
+                            .testTag(ServiceMenuTestTags.TELEMETRY_REGISTER),
+                    enabled =
+                        !state.telemetryBusy &&
+                            state.telemetrySerial.isNotBlank() &&
+                            state.telemetryRegKey.isNotBlank(),
+                ) {
+                    Text("Регистрация")
+                }
             }
             Spacer(Modifier.width(8.dp))
             Button(

@@ -17,8 +17,37 @@ class SerialAlreadyBoundException(
 
 class RebindNotAllowedException(
     message: String =
-        "Перепривязка запрещена. MASTER/ADMIN должен разрешить rebind на 15 минут в веб-интерфейсе.",
+        "Перепривязка запрещена: serial уже привязан к другой плате. " +
+            "Попросите MASTER/ADMIN разрешить rebind на 15 минут в веб-панели " +
+            "или используйте «Подключить WS», если автомат уже зарегистрирован на этой плате.",
 ) : Exception(message)
+
+class RegistrationKeyException(
+    val code: String,
+    message: String,
+) : Exception(message) {
+    companion object {
+        fun forCode(code: String): RegistrationKeyException =
+            RegistrationKeyException(
+                code,
+                when (code) {
+                    "REG_KEY_ALREADY_USED" ->
+                        "Ключ регистрации уже использован. " +
+                            "Если автомат уже зарегистрирован на этой плате — нажмите «Подключить WS» " +
+                            "(используется сохранённый machineSecret)."
+                    "REG_KEY_EXPIRED" ->
+                        "Срок действия ключа регистрации истёк. Выпустите новый ключ в веб-панели."
+                    "REG_KEY_REVOKED" ->
+                        "Ключ регистрации отозван. Выпустите новый ключ в веб-панели."
+                    "REG_KEY_SERIAL_MISMATCH" ->
+                        "Ключ регистрации не подходит к указанному серийному номеру."
+                    "REG_KEY_INVALID" ->
+                        "Неверный ключ регистрации. Проверьте формат REG-… и значение из веб-панели."
+                    else -> "Ошибка ключа регистрации ($code)."
+                },
+            )
+    }
+}
 
 class MissingEnrollmentKeyException(
     message: String =
@@ -131,17 +160,23 @@ class MvpTelemetryApiClient(
     private fun executeRegister(request: Request, serialNumber: String): RegisterResponseDto {
         httpClient.newCall(request).execute().use { response ->
             val text = response.body?.string().orEmpty()
+            val errorCode = EnrollConflictCodeParser.parseCode(json, text)
             if (response.code == 403) {
-                when (EnrollConflictCodeParser.parseCode(json, text)) {
+                when (errorCode) {
                     "REBIND_NOT_ALLOWED" -> throw RebindNotAllowedException()
                     else -> error("HTTP 403: ${redactApiLog(text)}")
                 }
             }
             if (response.code == 409) {
-                when (EnrollConflictCodeParser.parseCode(json, text)) {
+                when (errorCode) {
                     "SERIAL_ALREADY_BOUND" -> throw SerialAlreadyBoundException(serialNumber)
+                    "REG_KEY_ALREADY_USED", "REG_KEY_REVOKED", "REG_KEY_EXPIRED" ->
+                        throw RegistrationKeyException.forCode(errorCode!!)
                     else -> error("HTTP 409: $text")
                 }
+            }
+            if (response.code == 422 && errorCode?.startsWith("REG_KEY_") == true) {
+                throw RegistrationKeyException.forCode(errorCode)
             }
             if (!response.isSuccessful) {
                 Timber.w("MvpTelemetry register HTTP ${response.code}: ${redactApiLog(text)}")
