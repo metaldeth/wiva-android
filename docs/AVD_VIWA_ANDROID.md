@@ -26,14 +26,17 @@
 
 ## Physical board reference
 
+Канон (wifi-adb serial и как отличить плату с `com.viwa.android`) — в **`AGENTS.md` → «Физическая плата (wifi-adb)»**.
+
 | Parameter | Value |
 |-----------|-------|
-| ADB target | `192.168.50.163:5555` |
+| ADB target | **`192.168.1.107:5555`** (актуально; старый офисный IP `192.168.50.163` устарел) |
 | Device | `k3568_a` |
 | OS | Android 11 / API 30 |
 | ABI | **arm64** |
 | Screen | 1080×1920 @ 160 dpi |
 | RAM | 2 GB |
+| Package | `com.viwa.android` |
 
 ## Launch (PowerShell)
 

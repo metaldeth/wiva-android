@@ -18,6 +18,29 @@
 
 Настройки и служебные сценарии — только в рамках структуры из **ТЗ §2** (таблица «Сервисное меню»): порядок вкладок как в `wiva_electron` `ServiceMenu/constants.ts`, вёрстка как в `legacy Android kiosk` `ServiceMenuScreen`. Код: `ui/screens/service/ViwaServiceMenuStructure.kt`, `ServiceScreen.kt`, `ViwaServiceMenuTabContent.kt`; новые вкладки — пакет `.../service/tabs/` по образцу киоска.
 
+## Физическая плата (wifi-adb)
+
+**Рабочая плата проекта Viwa Android** — устройство, на котором стоит `com.viwa.android`.
+
+| Параметр | Значение |
+|----------|----------|
+| ADB serial (wifi) | **`192.168.1.107:5555`** |
+| Модель / product | `k3568_a` |
+| Package | `com.viwa.android` |
+| Launch activity | `com.viwa.android/.ui.MainActivity` |
+
+В офисе часто одновременно видны **две** платы `k3568_a` по wifi-adb. Выбирать **только** ту, где установлен `com.viwa.android` (проверка: `adb -s <serial> shell pm path com.viwa.android`). Другая плата (например `192.168.1.63:5555` с другим софтом) — **не** целевая для этого проекта.
+
+Установка и запуск на плате:
+
+```bat
+adb -s 192.168.1.107:5555 wait-for-device
+gradlew.bat installDebug
+adb -s 192.168.1.107:5555 shell am start -n com.viwa.android/.ui.MainActivity
+```
+
+Если IP платы сменится — обновить эту таблицу после проверки `pm path com.viwa.android`.
+
 ## Эмулятор для проверки релиза
 
 **Основная платформа проекта:** приложение **Viwa Android** (`com.viwa.android`) должно

@@ -21,7 +21,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import com.viwa.android.ui.screens.customer.ViwaCustomerUiTokens
+import com.viwa.android.ui.theme.GLOBAL_UI_SCALE
 import com.viwa.android.ui.theme.LocalCustomerPrimaryButtonColor
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -156,52 +159,61 @@ class MainActivity : ComponentActivity() {
                 (if (isDark) DarkScheme else LightScheme).copy(primary = brandPrimaryColor)
             val isIdleVisible by idleVideoViewModel.isVisible.collectAsStateWithLifecycle()
             val enabledVideoIds by idleVideoViewModel.enabledVideoIds.collectAsStateWithLifecycle()
-            MaterialTheme(colorScheme = colorScheme) {
-                CompositionLocalProvider(LocalCustomerPrimaryButtonColor provides brandPrimaryColor) {
-                    val navController = rememberNavController()
-                    val backStackEntry by navController.currentBackStackEntryAsState()
+            val baseDensity = LocalDensity.current
+            CompositionLocalProvider(
+                LocalDensity provides
+                    Density(
+                        density = baseDensity.density * GLOBAL_UI_SCALE,
+                        fontScale = baseDensity.fontScale,
+                    ),
+            ) {
+                MaterialTheme(colorScheme = colorScheme) {
+                    CompositionLocalProvider(LocalCustomerPrimaryButtonColor provides brandPrimaryColor) {
+                        val navController = rememberNavController()
+                        val backStackEntry by navController.currentBackStackEntryAsState()
 
-                    LaunchedEffect(navController) {
-                        navigateToServiceLambda = {
-                            navController.navigate(Routes.Service) {
-                                launchSingleTop = true
+                        LaunchedEffect(navController) {
+                            navigateToServiceLambda = {
+                                navController.navigate(Routes.Service) {
+                                    launchSingleTop = true
+                                }
+                            }
+                            if (intent.getBooleanExtra("open_service_dashboard", false)) {
+                                intent.removeExtra("open_service_dashboard")
+                                ServiceScreenLaunch.selectDashboardOnOpen = true
+                                navigateToServiceLambda?.invoke()
                             }
                         }
-                        if (intent.getBooleanExtra("open_service_dashboard", false)) {
-                            intent.removeExtra("open_service_dashboard")
-                            ServiceScreenLaunch.selectDashboardOnOpen = true
-                            navigateToServiceLambda?.invoke()
+
+                        LaunchedEffect(navController) {
+                            employeeKeyServiceMenuCoordinator.openServiceMenuRequests.collect {
+                                if (navController.currentDestination?.route != Routes.Home) return@collect
+                                idleVideoViewModel.resetTimer()
+                                navController.navigate(Routes.Service)
+                            }
                         }
-                    }
 
-                    LaunchedEffect(navController) {
-                        employeeKeyServiceMenuCoordinator.openServiceMenuRequests.collect {
-                            if (navController.currentDestination?.route != Routes.Home) return@collect
-                            idleVideoViewModel.resetTimer()
-                            navController.navigate(Routes.Service)
+                        LaunchedEffect(Unit) {
+                            withContext(Dispatchers.IO) {
+                                runCatching { nanoKassaRepository.verifyIntegration() }
+                            }
                         }
-                    }
 
-                    LaunchedEffect(Unit) {
-                        withContext(Dispatchers.IO) {
-                            runCatching { nanoKassaRepository.verifyIntegration() }
+                        // Idle-таймер работает только на экране выбора напитков
+                        LaunchedEffect(backStackEntry) {
+                            val route = backStackEntry?.destination?.route
+                            idleVideoViewModel.setActive(route == Routes.Home)
                         }
-                    }
 
- // Idle-таймер работает только на экране выбора напитков
-                    LaunchedEffect(backStackEntry) {
-                        val route = backStackEntry?.destination?.route
-                        idleVideoViewModel.setActive(route == Routes.Home)
-                    }
-
-                    Box(modifier = Modifier.fillMaxSize()) {
-                        if (isIdleVisible) {
-                            IdleVideoOverlay(
-                                enabledVideoIds = enabledVideoIds,
-                                onDismiss = { idleVideoViewModel.resetTimer() },
-                            )
-                        } else {
-                            ViwaNavGraph(navController = navController)
+                        Box(modifier = Modifier.fillMaxSize()) {
+                            if (isIdleVisible) {
+                                IdleVideoOverlay(
+                                    enabledVideoIds = enabledVideoIds,
+                                    onDismiss = { idleVideoViewModel.resetTimer() },
+                                )
+                            } else {
+                                ViwaNavGraph(navController = navController)
+                            }
                         }
                     }
                 }
