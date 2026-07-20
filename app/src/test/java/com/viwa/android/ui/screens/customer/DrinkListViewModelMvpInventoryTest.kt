@@ -20,7 +20,8 @@ import com.viwa.android.hardware.controller.ViwaControllerTrafficLogger
 import com.viwa.android.hardware.controller.ControllerResponseEvent
 import com.viwa.android.services.payment.CardPaymentEventLogger
 import com.viwa.android.services.payment.CardPaymentOrchestrator
-import com.viwa.android.services.payment.PaymentTerminalService
+import com.viwa.android.data.payment.aqsi.AqsiUsbPaymentManager
+import com.viwa.android.services.payment.ControllerSbpNotifyService
 import com.viwa.android.services.preparing.PreparingManager
 import com.viwa.android.services.telemetry.ViwaTelemetryService
 import io.mockk.every
@@ -119,17 +120,13 @@ class DrinkListViewModelMvpInventoryTest {
         return mock
     }
 
-    private fun createGatewayAndTerminal(
-        scope: CoroutineScope,
-        telemetry: ViwaTelemetryService,
-        configRepository: ConfigRepository,
-    ): Pair<ControllerGateway, PaymentTerminalService> {
+    private fun createGatewayAndPaymentMocks(): Pair<ControllerGateway, ControllerSbpNotifyService> {
         val gateway = mockk<ControllerGateway>(relaxUnitFun = true)
         val responses = MutableSharedFlow<ControllerResponseEvent>(extraBufferCapacity = 16)
         every { gateway.incomingResponses } returns responses.asSharedFlow()
         every { gateway.isPhysicalControllerConnected } returns MutableStateFlow(true).asStateFlow()
-        val pts = PaymentTerminalService(gateway, telemetry, scope, configRepository, CardPaymentEventLogger())
-        return gateway to pts
+        val sbp = mockk<ControllerSbpNotifyService>(relaxUnitFun = true)
+        return gateway to sbp
     }
 
     private fun createViewModel(
@@ -138,7 +135,9 @@ class DrinkListViewModelMvpInventoryTest {
     ): DrinkListViewModel {
         val telemetry = createTestTelemetry()
         val payScope = CoroutineScope(SupervisorJob() + executor.asCoroutineDispatcher())
-        val (gateway, pts) = createGatewayAndTerminal(payScope, telemetry, configRepository)
+        val (gateway, sbpNotify) = createGatewayAndPaymentMocks()
+        val aqsi = mockk<AqsiUsbPaymentManager>(relaxed = true)
+        every { aqsi.terminalStatusFlow } returns MutableStateFlow("").asStateFlow()
         val preparing = mockk<PreparingManager>(relaxUnitFun = true)
         every { preparing.customerPhase } returns
             MutableStateFlow(com.viwa.android.services.preparing.CustomerPreparingPhase.Idle).asStateFlow()
@@ -156,7 +155,8 @@ class DrinkListViewModelMvpInventoryTest {
             telemetryCellsRepository,
             preparing,
             gateway,
-            pts,
+            aqsi,
+            sbpNotify,
             telemetry,
             getSbp,
             checkSbp,

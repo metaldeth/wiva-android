@@ -1,4 +1,4 @@
-package com.viwa.android.data.payment.aqsi
+﻿package com.viwa.android.data.payment.aqsi
 
 /**
  * Низкоуровневый кадр Arcus2 (KB aQsi protocol): STX=0x5A, PCB, DATA_LENGTH LE, DATA, CRC8

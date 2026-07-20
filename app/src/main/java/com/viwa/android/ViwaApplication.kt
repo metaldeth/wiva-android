@@ -1,20 +1,47 @@
 package com.viwa.android
 
 import android.app.Application
+import com.viwa.android.data.payment.aqsi.setup.AqsiPaymentStartupInitializer
 import com.viwa.android.hardware.FlowStripRgbCoordinator
+import com.viwa.android.hardware.scanner.ViwaScannerStartupInitializer
+import com.viwa.android.hardware.serial.ViwaSerialDiscovery
 import dagger.hilt.android.HiltAndroidApp
 import javax.inject.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import timber.log.Timber
 
 @HiltAndroidApp
 class ViwaApplication : Application() {
- /** Ранняя инициализация: [FlowStripRgbCoordinator] регистрирует колбэк в `init`. */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     @Suppress("unused")
     @Inject
     lateinit var flowStripRgbCoordinator: FlowStripRgbCoordinator
 
+    @Inject
+    lateinit var aqsiPaymentStartupInitializer: AqsiPaymentStartupInitializer
+
+    @Inject
+    lateinit var scannerStartupInitializer: ViwaScannerStartupInitializer
+
+    @Inject
+    lateinit var serialDiscovery: ViwaSerialDiscovery
+
     override fun onCreate() {
         super.onCreate()
         Timber.plant(Timber.DebugTree())
+        appScope.launch {
+            val devices = serialDiscovery.availableDevices()
+            Timber.tag("ViwaSerial").i(
+                "startup discovery: count=%d paths=%s",
+                devices.size,
+                devices.joinToString { it.deviceName },
+            )
+        }
+        aqsiPaymentStartupInitializer.start()
+        scannerStartupInitializer.start()
     }
 }

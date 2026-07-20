@@ -1,4 +1,4 @@
-package com.viwa.android.data.payment.aqsi
+﻿package com.viwa.android.data.payment.aqsi
 
 import com.viwa.android.domain.model.AqsiPaymentResult
 import java.nio.charset.Charset

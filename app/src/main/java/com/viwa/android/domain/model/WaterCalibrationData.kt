@@ -18,4 +18,6 @@ data class WaterCalibrationData(
     val lastActualMl: Int? = null,
     val lastPourDurationSec: Double? = null,
     val lastPourTimestampMs: Long? = null,
+    /** Last known water pump coefficient (tenths), persisted for offline fallback. */
+    val waterPumpTenths: Int? = null,
 )

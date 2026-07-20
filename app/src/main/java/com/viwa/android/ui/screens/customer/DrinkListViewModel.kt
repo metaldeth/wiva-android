@@ -40,7 +40,8 @@ import com.viwa.android.services.preparing.CustomerPreparingPhase
 import com.viwa.android.services.preparing.PrepareDrinkResult
 import com.viwa.android.services.preparing.PreparingManager
 import com.viwa.android.services.payment.CardPaymentOrchestrator
-import com.viwa.android.services.payment.PaymentTerminalService
+import com.viwa.android.data.payment.aqsi.AqsiUsbPaymentManager
+import com.viwa.android.services.payment.ControllerSbpNotifyService
 import com.viwa.android.services.payment.TerminalProductType
 import com.viwa.android.services.telemetry.ViwaTelemetryService
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -154,7 +155,8 @@ constructor(
     private val telemetryCellsRepository: TelemetryCellsRepository,
     private val preparingManager: PreparingManager,
     private val controllerGateway: ControllerGateway,
-    private val paymentTerminalService: PaymentTerminalService,
+    private val aqsiUsbPaymentManager: AqsiUsbPaymentManager,
+    private val controllerSbpNotifyService: ControllerSbpNotifyService,
     private val telemetryService: ViwaTelemetryService,
     private val getSBPLinkUseCase: GetSBPLinkUseCase,
     private val checkSBPStatusUseCase: CheckSBPStatusUseCase,
@@ -210,7 +212,7 @@ constructor(
             }
         }
         viewModelScope.launch {
-            paymentTerminalService.vendStatusText.collect { text ->
+            aqsiUsbPaymentManager.terminalStatusFlow.collect { text ->
                 _state.update { it.copy(paymentTerminalBanner = text) }
             }
         }
@@ -1191,7 +1193,7 @@ constructor(
             volume = volume,
             sbp = sbp,
             cardPaymentOrchestrator = cardPaymentOrchestrator,
-            paymentTerminalService = paymentTerminalService,
+            controllerSbpNotifyService = controllerSbpNotifyService,
         )
         val mock = configRepository.get(JsonStoreKeys.USE_MOCK_CONTROLLER) == "true"
         if (sbp && mock) {

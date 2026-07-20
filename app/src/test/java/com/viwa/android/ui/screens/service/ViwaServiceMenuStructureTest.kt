@@ -38,4 +38,21 @@ class ViwaServiceMenuStructureTest {
             telemetry.subTabs.map { it.id },
         )
     }
+
+    @Test
+    fun equipmentSubTabs_matchHybridDevicesLayout() {
+        val equipment = findViwaServiceGroup(ViwaServiceGroupId.Equipment)
+        assertEquals("Устройства", equipment.label)
+        assertEquals(
+            listOf(
+                ViwaServiceSubTabId.Devices,
+                ViwaServiceSubTabId.Ports,
+                ViwaServiceSubTabId.Controller,
+                ViwaServiceSubTabId.Payment,
+                ViwaServiceSubTabId.Scanner,
+                ViwaServiceSubTabId.Rfid,
+            ),
+            equipment.subTabs.map { it.id },
+        )
+    }
 }

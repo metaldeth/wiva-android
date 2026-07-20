@@ -60,7 +60,7 @@ class ViwaAqsiDiagnosticsViewModel
 
         fun refresh() {
             viewModelScope.launch {
-                val method = runCatching { cardPaymentMethodRepository.getSelected() }.getOrDefault(CardPaymentMethod.Pax)
+                val method = runCatching { cardPaymentMethodRepository.getSelected() }.getOrDefault(CardPaymentMethod.Aqsi)
                 val mockMode = runCatching { cardPaymentMockModeRepository.getMode() }.getOrDefault(CardPaymentMockMode.Disabled)
                 val snap = lastOperationSnapshotHolder.getSnapshot()
                 _uiState.update {
@@ -216,7 +216,7 @@ class ViwaAqsiDiagnosticsViewModel
                     "Тест 1 коп. отправлен",
                     lane = CardPaymentLogLane.ToTerminal,
                 )
-                val result = aqsiRepository.initiatePayment(1)
+                val result = aqsiRepository.initiatePayment(100)
                 val snap = lastOperationSnapshotHolder.getSnapshot()
                 val payment = result.getOrNull()
                 val (banner, isError) =
@@ -248,8 +248,7 @@ class ViwaAqsiDiagnosticsViewModel
 
         private fun cardMethodLabel(m: CardPaymentMethod): String =
             when (m) {
-                CardPaymentMethod.Pax -> "2can"
-                CardPaymentMethod.Aqsi -> "Новый считыватель aQsi"
+                CardPaymentMethod.Aqsi -> "aQsi USB"
             }
 
         private fun setMockMode(
@@ -267,7 +266,7 @@ class ViwaAqsiDiagnosticsViewModel
                             lane = CardPaymentLogLane.System,
                         )
                         val method =
-                            runCatching { cardPaymentMethodRepository.getSelected() }.getOrDefault(CardPaymentMethod.Pax)
+                            runCatching { cardPaymentMethodRepository.getSelected() }.getOrDefault(CardPaymentMethod.Aqsi)
                         _uiState.update {
                             it.copy(
                                 mockMode = mode,

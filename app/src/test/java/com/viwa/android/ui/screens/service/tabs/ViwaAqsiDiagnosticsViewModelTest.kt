@@ -98,7 +98,7 @@ class ViwaAqsiDiagnosticsViewModelTest {
     @Test
     fun enableAqsiMock_doesNotChangeSelectedMethod() =
         runBlocking {
-            val repo = RepoCard(CardPaymentMethod.Pax)
+            val repo = RepoCard(CardPaymentMethod.Aqsi)
             val vm =
                 ViwaAqsiDiagnosticsViewModel(
                     cardPaymentMethodRepository = repo,
@@ -109,7 +109,7 @@ class ViwaAqsiDiagnosticsViewModelTest {
                     paymentEventLogger = CardPaymentEventLogger(),
                 )
             vm.enableAqsiMock()
-            assertEquals(CardPaymentMethod.Pax, repo.selected)
+            assertEquals(CardPaymentMethod.Aqsi, repo.selected)
             assertEquals(CardPaymentMockMode.Aqsi, vm.uiState.value.mockMode)
         }
 
@@ -145,7 +145,7 @@ class ViwaAqsiDiagnosticsViewModelTest {
                     detailCode = "",
                 ),
             )
-            val vm = createVm(CardPaymentMethod.Pax, holder)
+            val vm = createVm(CardPaymentMethod.Aqsi, holder)
             val line = vm.uiState.value.lastOperationLine1
             assertTrue(line != null && line.contains("Тест TCP"))
         }

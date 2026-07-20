@@ -3,13 +3,9 @@ package com.viwa.android.ui.screens.customer
 import com.viwa.android.domain.model.CardPaymentResult
 import com.viwa.android.domain.model.customer.DrinkContainer
 import com.viwa.android.services.payment.CardPaymentOrchestrator
-import com.viwa.android.services.payment.PaymentTerminalService
+import com.viwa.android.services.payment.ControllerSbpNotifyService
 import com.viwa.android.services.payment.TerminalProductType
 
-/**
- * Карточный и СБП-вызовы терминала для напитка и подписки (task-05).
- * Логика.
- */
 internal object DrinkListCardPaymentFlow {
 
     suspend fun runDrinkPaymentBeforePour(
@@ -17,15 +13,14 @@ internal object DrinkListCardPaymentFlow {
         volume: Int,
         sbp: Boolean,
         cardPaymentOrchestrator: CardPaymentOrchestrator,
-        paymentTerminalService: PaymentTerminalService,
+        controllerSbpNotifyService: ControllerSbpNotifyService,
     ) {
         val priceRub = container.product.dPrices.firstOrNull { it.volume == volume }?.priceRub ?: 0
         if (sbp) {
-            paymentTerminalService.sendSumToTerminal(
+            controllerSbpNotifyService.notifySbpPayment(
                 TerminalProductType.Drink,
                 priceRub,
                 container.containerNumber,
-                sbp = true,
             )
             return
         }
@@ -43,7 +38,6 @@ internal object DrinkListCardPaymentFlow {
                 throw IllegalStateException(
                     payResult.reason.ifBlank { "Ошибка оплаты картой" },
                 )
-
             CardPaymentResult.Cancelled ->
                 throw IllegalStateException("Оплата отменена")
         }

@@ -1,4 +1,4 @@
-package com.viwa.android.data.payment.aqsi
+﻿package com.viwa.android.data.payment.aqsi
 
 /** Исход операции для диагностики (только нечувствительные поля). */
 enum class AqsiDiagnosticOutcome {

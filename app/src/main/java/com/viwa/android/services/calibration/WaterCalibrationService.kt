@@ -66,6 +66,7 @@ constructor(
         private const val POUR_TIMEOUT_MS = 120_000L
         private const val READ_PUMP_TIMEOUT_MS = 3_000L
         private const val ACK_TIMEOUT_MS = 2_000L
+        const val DEFAULT_WATER_PUMP_TENTHS = 3
     }
 
     suspend fun loadCalibration(): WaterCalibrationData {
@@ -99,6 +100,80 @@ constructor(
             json.encodeToString(WaterCalibrationData.serializer(), data),
         )
     }
+
+    suspend fun readPumpTenths(): Result<Int> =
+        mutex.withLock {
+            if (!hardware.hasActiveConnection()) {
+                return Result.failure(IllegalStateException("Контроллер недоступен"))
+            }
+            readPumpTenthsFromController()
+                .map { tenths ->
+                    persistPumpTenths(tenths)
+                    tenths
+                }
+        }
+
+    suspend fun writePumpTenths(tenths: Int): Result<Unit> =
+        mutex.withLock {
+            if (!hardware.hasActiveConnection()) {
+                return Result.failure(IllegalStateException("Контроллер недоступен"))
+            }
+            val clamped = tenths.coerceIn(1, 255)
+            writePumpTenthsToController(clamped)
+                .onSuccess { persistPumpTenths(clamped) }
+        }
+
+    suspend fun resolvePumpTenthsForUplink(): Int {
+        readPumpTenths()
+            .onSuccess { return it }
+        return loadCalibration().waterPumpTenths ?: DEFAULT_WATER_PUMP_TENTHS
+    }
+
+    private suspend fun persistPumpTenths(tenths: Int) {
+        val stored = loadCalibration()
+        if (stored.waterPumpTenths == tenths) return
+        saveCalibration(stored.copy(waterPumpTenths = tenths))
+    }
+
+    private suspend fun readPumpTenthsFromController(): Result<Int> =
+        runCatching {
+            val answer =
+                coroutineScope {
+                    val awaitAnswer =
+                        async {
+                            hardware.incomingResponses.first {
+                                it.response == ResponseCommand.WaterPumpModelAnswer
+                            }
+                        }
+                    yield()
+                    hardware.sendCommand(RequestCommand.ReadWaterPumpModel, ControllerConstants.DEFAULT_BODY)
+                    withTimeoutOrNull(READ_PUMP_TIMEOUT_MS) { awaitAnswer.await() }
+                }
+            if (answer == null || answer.payload.isEmpty()) {
+                error("Таймаут чтения коэффициента")
+            }
+            answer.payload[0].toInt() and 0xff
+        }
+
+    private suspend fun writePumpTenthsToController(tenths: Int): Result<Unit> =
+        runCatching {
+            val writeBody = ByteArray(5) { tenths.toByte() }
+            val ackReceived =
+                coroutineScope {
+                    val awaitAck =
+                        async {
+                            hardware.incomingResponses.first {
+                                it.response == ResponseCommand.ControllerACK
+                            }
+                        }
+                    yield()
+                    hardware.sendCommand(RequestCommand.WriteWaterPumpModel, writeBody)
+                    withTimeoutOrNull(ACK_TIMEOUT_MS) { awaitAck.await() }
+                }
+            if (ackReceived == null) {
+                error("Таймаут подтверждения записи коэффициента")
+            }
+        }
 
  /**
  * Тестовый налив: [RequestCommand.ServiceCommand] mode 0x0A, тело.
@@ -189,47 +264,22 @@ constructor(
             val target = targetVolumeMl.coerceAtLeast(0).toDouble()
             val actual = actualVolumeMl.toDouble()
 
-            val answer =
-                coroutineScope {
-                    val awaitAnswer =
-                        async {
-                            hardware.incomingResponses.first {
-                                it.response == ResponseCommand.WaterPumpModelAnswer
-                            }
-                        }
-                    yield()
-                    hardware.sendCommand(RequestCommand.ReadWaterPumpModel, ControllerConstants.DEFAULT_BODY)
-                    withTimeoutOrNull(READ_PUMP_TIMEOUT_MS) { awaitAnswer.await() }
+            val currentTenths =
+                readPumpTenthsFromController().getOrElse {
+                    return WaterCalibrationWriteResult.Failure("Таймаут чтения коэффициента")
                 }
-            if (answer == null || answer.payload.isEmpty()) {
-                return WaterCalibrationWriteResult.Failure("Таймаут чтения коэффициента")
-            }
-
-            val currentTenths = answer.payload[0].toInt() and 0xff
             val newTenths =
                 WaterCalibrationCalculations.computeNewTenths(
                     currentTenths = currentTenths,
                     targetVolumeMl = target,
                     actualVolumeMl = actual,
                 )
-            val writeBody = ByteArray(5) { newTenths.toByte() }
 
-            val ackReceived =
-                coroutineScope {
-                    val awaitAck =
-                        async {
-                            hardware.incomingResponses.first {
-                                it.response == ResponseCommand.ControllerACK
-                            }
-                        }
-                    yield()
-                    hardware.sendCommand(RequestCommand.WriteWaterPumpModel, writeBody)
-                    withTimeoutOrNull(ACK_TIMEOUT_MS) { awaitAck.await() }
+            writePumpTenthsToController(newTenths)
+                .onFailure {
+                    return WaterCalibrationWriteResult.Failure("Таймаут подтверждения записи коэффициента")
                 }
-
-            if (ackReceived == null) {
-                return WaterCalibrationWriteResult.Failure("Таймаут подтверждения записи коэффициента")
-            }
+            persistPumpTenths(newTenths)
 
             val flowRate =
                 WaterCalibrationCalculations.computeFlowRateMlPerSec(

@@ -61,6 +61,12 @@ sealed interface ViwaServiceSubTabId {
 
     data object Controller : ViwaServiceSubTabId
 
+    /** Главная вкладка «Устройства» (shaker hybrid Devices). */
+    data object Devices : ViwaServiceSubTabId
+
+    /** Сканирование UART / назначение контроллера. */
+    data object Ports : ViwaServiceSubTabId
+
     data object Payment : ViwaServiceSubTabId
 
     data object Scanner : ViwaServiceSubTabId
@@ -89,10 +95,8 @@ sealed interface ViwaServiceSubTabId {
 
     data object MetricsMemory : ViwaServiceSubTabId
 
- /** Вкладка «Метод» — выбор 2can/PAX или aQsi. */
+ /** Вкладка «Метод» — aQsi USB (единственный карточный метод). */
     data object CardPaymentMethod : ViwaServiceSubTabId
-
-    data object TwoCanServiceSettings : ViwaServiceSubTabId
 
     data object AqsiServiceSettings : ViwaServiceSubTabId
 
@@ -158,20 +162,21 @@ val ViwaServiceMenuGroups: List<ViwaServiceGroupSpec> =
             subTabs =
                 listOf(
                     ViwaServiceSubTabSpec(ViwaServiceSubTabId.CardPaymentMethod, "Метод"),
-                    ViwaServiceSubTabSpec(ViwaServiceSubTabId.TwoCanServiceSettings, "2can"),
-                    ViwaServiceSubTabSpec(ViwaServiceSubTabId.AqsiServiceSettings, "Новый считыватель"),
+                    ViwaServiceSubTabSpec(ViwaServiceSubTabId.AqsiServiceSettings, "aQsi"),
                     ViwaServiceSubTabSpec(ViwaServiceSubTabId.AqsiServiceDiagnostics, "Тесты и журнал"),
                 ),
         ),
         ViwaServiceGroupSpec(
             id = ViwaServiceGroupId.Equipment,
-            label = "Оборудование",
+            label = "Устройства",
             subTabs =
                 listOf(
+                    ViwaServiceSubTabSpec(ViwaServiceSubTabId.Devices, "Устройства"),
+                    ViwaServiceSubTabSpec(ViwaServiceSubTabId.Ports, "Порты"),
                     ViwaServiceSubTabSpec(ViwaServiceSubTabId.Controller, "Контроллер"),
+                    ViwaServiceSubTabSpec(ViwaServiceSubTabId.Payment, "Платёжник"),
                     ViwaServiceSubTabSpec(ViwaServiceSubTabId.Scanner, "Сканер"),
                     ViwaServiceSubTabSpec(ViwaServiceSubTabId.Rfid, "RFID"),
-                    ViwaServiceSubTabSpec(ViwaServiceSubTabId.Payment, "Платёжник"),
                 ),
         ),
         ViwaServiceGroupSpec(

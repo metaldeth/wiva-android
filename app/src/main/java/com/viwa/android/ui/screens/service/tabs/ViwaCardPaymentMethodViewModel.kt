@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class ViwaCardPaymentMethodUiState(
-    val selected: CardPaymentMethod = CardPaymentMethod.Pax,
+    val selected: CardPaymentMethod = CardPaymentMethod.Aqsi,
     val mockMode: CardPaymentMockMode = CardPaymentMockMode.Disabled,
     val isBusy: Boolean = false,
     val banner: String? = null,
@@ -58,43 +58,12 @@ class ViwaCardPaymentMethodViewModel
             }
         }
 
-        fun selectPax() {
+        fun ensureAqsiSelected() {
             viewModelScope.launch {
-                _uiState.update { it.copy(isBusy = true, banner = null) }
-                runCatching { cardPaymentMethodRepository.setSelected(CardPaymentMethod.Pax) }
-                    .onSuccess {
-                        _uiState.update {
-                            it.copy(selected = CardPaymentMethod.Pax, isBusy = false)
-                        }
-                    }
-                    .onFailure { e ->
-                        _uiState.update {
-                            it.copy(
-                                isBusy = false,
-                                banner = e.message ?: "Не удалось сохранить",
-                                bannerIsError = true,
-                            )
-                        }
-                    }
-            }
-        }
-
-        fun selectAqsi() {
-            viewModelScope.launch {
-                _uiState.update { it.copy(isBusy = true, banner = null) }
                 runCatching { cardPaymentMethodRepository.setSelected(CardPaymentMethod.Aqsi) }
                     .onSuccess {
                         _uiState.update {
-                            it.copy(selected = CardPaymentMethod.Aqsi, isBusy = false)
-                        }
-                    }
-                    .onFailure { e ->
-                        _uiState.update {
-                            it.copy(
-                                isBusy = false,
-                                banner = e.message ?: "Не удалось сохранить",
-                                bannerIsError = true,
-                            )
+                            it.copy(selected = CardPaymentMethod.Aqsi, isBusy = false, banner = "aQsi USB — активный метод")
                         }
                     }
             }

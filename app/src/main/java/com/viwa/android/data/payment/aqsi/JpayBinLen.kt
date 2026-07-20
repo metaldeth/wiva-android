@@ -1,4 +1,4 @@
-package com.viwa.android.data.payment.aqsi
+﻿package com.viwa.android.data.payment.aqsi
 
 /**
  * Формат BinLen из KB (JPAY): [SOH=0x01][LEN u16 LE][DATA].

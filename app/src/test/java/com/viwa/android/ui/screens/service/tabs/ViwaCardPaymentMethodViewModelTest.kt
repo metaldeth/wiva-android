@@ -2,12 +2,10 @@ package com.viwa.android.ui.screens.service.tabs
 
 import com.viwa.android.domain.model.CardPaymentMethod
 import com.viwa.android.domain.model.CardPaymentMockMode
-import com.viwa.android.domain.model.CardPaymentMockOutcome
 import com.viwa.android.domain.repository.CardPaymentMockModeRepository
 import com.viwa.android.domain.repository.CardPaymentMethodRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -32,7 +30,7 @@ class ViwaCardPaymentMethodViewModelTest {
     }
 
     private class FakeRepo(
-        var selected: CardPaymentMethod = CardPaymentMethod.Pax,
+        var selected: CardPaymentMethod = CardPaymentMethod.Aqsi,
     ) : CardPaymentMethodRepository {
         override suspend fun getSelected(): CardPaymentMethod = selected
 
@@ -50,37 +48,17 @@ class ViwaCardPaymentMethodViewModelTest {
             this.mode = mode
         }
 
-        override suspend fun getOutcome(): CardPaymentMockOutcome = CardPaymentMockOutcome.Approved
+        override suspend fun getOutcome() = com.viwa.android.domain.model.CardPaymentMockOutcome.Approved
 
-        override suspend fun setOutcome(outcome: CardPaymentMockOutcome) = Unit
+        override suspend fun setOutcome(outcome: com.viwa.android.domain.model.CardPaymentMockOutcome) = Unit
     }
 
     @Test
-    fun initialLoad_whenRepositoryAQSI_uiReflectsAqsi() =
-        runBlocking {
-            val fake = FakeRepo(CardPaymentMethod.Aqsi)
-            val vm = ViwaCardPaymentMethodViewModel(fake, FakeMockRepo(CardPaymentMockMode.Aqsi))
-            assertEquals(CardPaymentMethod.Aqsi, vm.uiState.value.selected)
-            assertEquals(CardPaymentMockMode.Aqsi, vm.uiState.value.mockMode)
-        }
-
-    @Test
-    fun selectPax_callsSetSelectedPax() =
-        runBlocking {
-            val fake = FakeRepo(CardPaymentMethod.Aqsi)
-            val vm = ViwaCardPaymentMethodViewModel(fake, FakeMockRepo())
-            vm.selectPax()
-            assertEquals(CardPaymentMethod.Pax, fake.selected)
-            assertEquals(CardPaymentMethod.Pax, vm.uiState.value.selected)
-        }
-
-    @Test
-    fun selectAqsi_callsSetSelectedAqsi() =
-        runBlocking {
-            val fake = FakeRepo(CardPaymentMethod.Pax)
-            val vm = ViwaCardPaymentMethodViewModel(fake, FakeMockRepo())
-            vm.selectAqsi()
-            assertEquals(CardPaymentMethod.Aqsi, fake.selected)
-            assertEquals(CardPaymentMethod.Aqsi, vm.uiState.value.selected)
-        }
+    fun refresh_loadsAqsiByDefault() {
+        val fake = FakeRepo(CardPaymentMethod.Aqsi)
+        val vm = ViwaCardPaymentMethodViewModel(fake, FakeMockRepo(CardPaymentMockMode.Aqsi))
+        assertEquals(CardPaymentMethod.Aqsi, vm.uiState.value.selected)
+        assertEquals(CardPaymentMockMode.Aqsi, vm.uiState.value.mockMode)
+        assertEquals(false, vm.uiState.value.isBusy)
+    }
 }

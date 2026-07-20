@@ -80,6 +80,9 @@ constructor(
         calibrationInventory
             .updateContainerConversionFactor(containerNumber, newCf)
             .onFailure { return Result.failure(it) }
+            .onSuccess { updatedCell ->
+                cellsSyncCoordinator.onLocalContentChange(listOf(updatedCell))
+            }
         Timber.i("SyrupCalibration: сохранён conversionFactor=%.4f container=%d", newCf, containerNumber)
         return Result.success(newCf)
     }

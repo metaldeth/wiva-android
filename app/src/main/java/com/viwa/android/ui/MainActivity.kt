@@ -183,6 +183,11 @@ class MainActivity : ComponentActivity() {
                                 ServiceScreenLaunch.selectDashboardOnOpen = true
                                 navigateToServiceLambda?.invoke()
                             }
+                            if (intent.getBooleanExtra("open_service_equipment", false)) {
+                                intent.removeExtra("open_service_equipment")
+                                ServiceScreenLaunch.selectEquipmentDevicesOnOpen = true
+                                navigateToServiceLambda?.invoke()
+                            }
                         }
 
                         LaunchedEffect(navController) {

@@ -1,4 +1,4 @@
-package com.viwa.android.data.payment.aqsi
+﻿package com.viwa.android.data.payment.aqsi
 
 import com.viwa.android.data.local.db.JsonStoreKeys
 import com.viwa.android.data.repository.ConfigRepository
@@ -9,8 +9,7 @@ import com.viwa.android.services.payment.CardPaymentEventLogger
 import com.viwa.android.services.payment.CardPaymentLogLane
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
@@ -19,13 +18,9 @@ import timber.log.Timber
 
 private const val TAG_AQSI_REPO = "AqsiRepo"
 
-/**
- * Реализация [AqsiRepository]: JsonStore + IO + вызовы [Arcus2TerminalClient].
- * DI — task-04 ([com.viwa.android.di.AqsiModule]).
- */
 class AqsiRepositoryImpl(
     private val configRepository: ConfigRepository,
-    private val arcus2: Arcus2TerminalClient,
+    private val usbPaymentManager: AqsiUsbPaymentManager,
     private val lastOperationSnapshotHolder: AqsiLastOperationSnapshotHolder,
     private val paymentEventLogger: CardPaymentEventLogger,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
@@ -36,6 +31,10 @@ class AqsiRepositoryImpl(
             ignoreUnknownKeys = true
             encodeDefaults = true
         }
+
+    val exchangeLogFlow: StateFlow<List<String>> = usbPaymentManager.exchangeLogFlow
+
+    val terminalStatusFlow: StateFlow<String> = usbPaymentManager.terminalStatusFlow
 
     override suspend fun loadConfig(): AqsiConfig =
         withContext(ioDispatcher) {
@@ -51,72 +50,42 @@ class AqsiRepositoryImpl(
 
     override suspend fun testTcpConnection(): Result<Unit> =
         withContext(ioDispatcher) {
-            val cfg = loadStoredConfig()
-            if (cfg.host.isBlank()) {
-                val err = Result.failure<Unit>(IllegalArgumentException("no_host"))
-                recordTcpTest(cfg, err)
-                Timber.tag(TAG_AQSI_REPO).w("tcp_test skipped: empty host")
-                return@withContext err
-            }
-            val result = arcus2.testTcpChannel(cfg.host, cfg.port, cfg.timeoutMs)
-            recordTcpTest(cfg, result)
+            val result =
+                runCatching {
+                    val payment = usbPaymentManager.testPayment()
+                    val domain = mapUsbToDomain(payment)
+                    if (domain !== AqsiPaymentResult.Approved) {
+                        throw IllegalStateException("probe_not_approved")
+                    }
+                }
+            recordProbe(result.map { AqsiPaymentResult.Approved })
             if (result.isSuccess) {
                 paymentEventLogger.info(
-                    "Новый считыватель",
-                    "TCP-соединение OK",
+                    "aQsi USB",
+                    "USB/Arcus2 probe OK",
                     lane = CardPaymentLogLane.FromTerminal,
                 )
-                Timber.tag(TAG_AQSI_REPO).i("tcp_test ok")
+                Result.success(Unit)
             } else {
-                val ex = result.exceptionOrNull()
+                val err = result.exceptionOrNull() ?: IllegalStateException("probe_failed")
                 paymentEventLogger.error(
-                    "Новый считыватель",
-                    "TCP-соединение не прошло",
-                    ex?.javaClass?.simpleName ?: "unknown",
+                    "aQsi USB",
+                    "USB/Arcus2 probe failed",
+                    err.message ?: "probe_failed",
                     lane = CardPaymentLogLane.FromTerminal,
                 )
-                if (ex != null) {
-                    Timber.tag(TAG_AQSI_REPO).w(
-                        "tcp_test failed err=%s",
-                        ex.javaClass.simpleName,
-                    )
-                } else {
-                    Timber.tag(TAG_AQSI_REPO).w("tcp_test failed")
-                }
+                Result.failure(err)
             }
-            result
         }
 
     override suspend fun initiatePayment(amountKopecks: Int): Result<AqsiPaymentResult> =
         withContext(ioDispatcher) {
-            val cfg = loadStoredConfig()
             if (amountKopecks < 0) {
-                val err =
-                    Result.failure<AqsiPaymentResult>(
-                        AqsiTransportException("invalid_amount_kopecks"),
-                    )
+                val err = Result.failure<AqsiPaymentResult>(AqsiTransportException("invalid_amount_kopecks"))
                 recordPayment(err)
-                Timber.tag(TAG_AQSI_REPO).w("payment skipped: invalid amount")
                 return@withContext err
             }
-            if (cfg.host.isBlank()) {
-                val err =
-                    Result.failure<AqsiPaymentResult>(
-                        IllegalArgumentException(
-                            "В настройках «Новый считыватель» не указан адрес (host). " +
-                                "Задайте IP в сервисном меню или включите mock aQsi для теста.",
-                        ),
-                    )
-                recordPayment(err)
-                Timber.tag(TAG_AQSI_REPO).w("payment skipped: empty host")
-                return@withContext err
-            }
-            coroutineContext[Job]?.invokeOnCompletion { cause ->
-                if (cause is CancellationException) {
-                    runCatching { arcus2.interruptCurrentTcpSession() }
-                }
-            }
-            val result = arcus2.initiatePurchase(cfg.host, cfg.port, cfg.timeoutMs, amountKopecks)
+            val result = runCatching { usbPaymentManager.pay(amountKopecks) }.map { mapUsbToDomain(it) }
             recordPayment(result)
             logPaymentAggregate(result)
             result
@@ -124,26 +93,9 @@ class AqsiRepositoryImpl(
 
     override suspend fun cancelPayment(): Result<Unit> =
         withContext(ioDispatcher) {
-            runCatching { arcus2.interruptCurrentTcpSession() }.onFailure { ex ->
-                Timber.tag(TAG_AQSI_REPO).w(ex, "interruptTcpSession skipped")
-            }
-            val cfg = loadStoredConfig()
-            if (cfg.host.isBlank()) {
-                val err = Result.failure<Unit>(IllegalArgumentException("no_host"))
-                recordCancel(err)
-                return@withContext err
-            }
-            coroutineContext[Job]?.invokeOnCompletion { cause ->
-                if (cause is CancellationException) {
-                    runCatching { arcus2.interruptCurrentTcpSession() }
-                }
-            }
-            val result = arcus2.cancelPurchase(cfg.host, cfg.port, cfg.timeoutMs)
-            recordCancel(result)
-            result.exceptionOrNull()?.let { ex ->
-                Timber.tag(TAG_AQSI_REPO).w(ex, "cancel failed")
-            }
-            result
+            usbPaymentManager.cancel()
+            recordCancel(Result.success(Unit))
+            Result.success(Unit)
         }
 
     private suspend fun loadStoredConfig(): AqsiConfig {
@@ -157,23 +109,31 @@ class AqsiRepositoryImpl(
         }
     }
 
-    private fun recordTcpTest(cfg: AqsiConfig, result: Result<Unit>) {
+    private fun mapUsbToDomain(result: UsbPaymentResult): AqsiPaymentResult =
+        when (result) {
+            is UsbPaymentResult.Success -> AqsiPaymentResult.Approved
+            is UsbPaymentResult.Failure ->
+                if (result.errorCode.startsWith("AQSI_DECLINED")) {
+                    AqsiPaymentResult.Declined(result.errorCode.removePrefix("AQSI_DECLINED_"))
+                } else {
+                    AqsiPaymentResult.Error(result.message.take(256))
+                }
+            UsbPaymentResult.Cancelled -> AqsiPaymentResult.Cancelled
+            UsbPaymentResult.Timeout -> AqsiPaymentResult.Error("timeout")
+        }
+
+    private fun recordProbe(result: Result<AqsiPaymentResult>) {
         val outcome =
             when {
-                result.isSuccess -> AqsiDiagnosticOutcome.SUCCESS
+                result.isSuccess && result.getOrNull() === AqsiPaymentResult.Approved -> AqsiDiagnosticOutcome.SUCCESS
                 else -> AqsiDiagnosticOutcome.ERROR
-            }
-        val detail =
-            when {
-                result.isSuccess -> ""
-                else -> summaryDetail(result.exceptionOrNull())
             }
         lastOperationSnapshotHolder.update(
             AqsiLastOperationSummary(
                 timestampMillis = System.currentTimeMillis(),
                 operationKind = AqsiDiagnosticOperationKind.TCP_TEST,
                 outcome = outcome,
-                detailCode = detail,
+                detailCode = summaryDetail(result.exceptionOrNull()),
             ),
         )
     }
@@ -187,32 +147,26 @@ class AqsiRepositoryImpl(
                 outcome = AqsiDiagnosticOutcome.ERROR
                 detail = summaryDetail(result.exceptionOrNull())
             }
-
             payment == null -> {
                 outcome = AqsiDiagnosticOutcome.ERROR
                 detail = "unknown"
             }
-
             payment === AqsiPaymentResult.Approved -> {
                 outcome = AqsiDiagnosticOutcome.APPROVED
                 detail = ""
             }
-
             payment is AqsiPaymentResult.Declined -> {
                 outcome = AqsiDiagnosticOutcome.DECLINED
                 detail = payment.publicCode.take(16)
             }
-
             payment is AqsiPaymentResult.Error -> {
                 outcome = AqsiDiagnosticOutcome.ERROR
                 detail = payment.safeMessage.take(48)
             }
-
             payment === AqsiPaymentResult.Cancelled -> {
                 outcome = AqsiDiagnosticOutcome.CANCELLED
                 detail = ""
             }
-
             else -> {
                 outcome = AqsiDiagnosticOutcome.ERROR
                 detail = "unknown"
@@ -253,7 +207,6 @@ class AqsiRepositoryImpl(
         when (t) {
             is IllegalArgumentException -> t.message?.take(32) ?: "argument"
             is AqsiTransportException -> t.message?.take(32) ?: "transport"
-            is Arcus2ProtocolException -> "protocol"
             else -> t?.javaClass?.simpleName?.take(24) ?: "error"
         }
 

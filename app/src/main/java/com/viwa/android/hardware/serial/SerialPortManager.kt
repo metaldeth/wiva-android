@@ -20,6 +20,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.util.Locale
 
 @Singleton
 class SerialPortManager
@@ -44,14 +45,31 @@ constructor(
         val json = configRepository.getJson(JsonStoreKeys.PORT_ASSIGNMENTS) ?: return emptyMap()
         return runCatching {
             Json.decodeFromString<Map<String, String>>(json)
-                .mapValues { PortRole.valueOf(it.value) }
+                .mapNotNull { (deviceName, roleName) ->
+                    parseStoredPortRole(roleName)?.let { deviceName to it }
+                }
+                .toMap()
         }.getOrDefault(emptyMap())
+    }
+
+    private fun parseStoredPortRole(roleName: String): PortRole? {
+        val normalized = roleName.trim()
+        if (normalized.isEmpty()) return null
+        return runCatching { PortRole.valueOf(normalized) }.getOrNull()
+            ?: when (normalized.uppercase(Locale.US)) {
+                "PRIMARY_CONTROLLER", "PRIMARY" -> PortRole.CONTROLLER
+                else -> null
+            }
     }
 
     suspend fun setPortAssignment(deviceName: String, role: PortRole) {
         val current = getPortAssignments().toMutableMap()
         current[deviceName] = role
-        val encoded = Json.encodeToString(current.mapValues { it.value.name })
+        replacePortAssignments(current)
+    }
+
+    suspend fun replacePortAssignments(assignments: Map<String, PortRole>) {
+        val encoded = Json.encodeToString(assignments.mapValues { it.value.name })
         configRepository.setJson(JsonStoreKeys.PORT_ASSIGNMENTS, encoded)
     }
 

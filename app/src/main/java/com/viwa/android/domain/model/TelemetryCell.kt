@@ -16,4 +16,10 @@ data class TelemetryCell(
     val maxVolume: Int,
     val dosage1Price: Int? = null,
     val dosage2Price: Int? = null,
-)
+    /** Syrup dispenser calibration factor; default matches telemetry protocol. */
+    val conversionFactor: Double = DEFAULT_CONVERSION_FACTOR,
+) {
+    companion object {
+        const val DEFAULT_CONVERSION_FACTOR = 4.0
+    }
+}

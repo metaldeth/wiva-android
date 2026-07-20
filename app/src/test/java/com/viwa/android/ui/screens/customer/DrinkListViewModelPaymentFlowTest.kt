@@ -7,7 +7,7 @@ import com.viwa.android.domain.model.customer.DrinkPrice
 import com.viwa.android.domain.model.customer.DrinkProduct
 import com.viwa.android.domain.model.customer.DrinkTaste
 import com.viwa.android.services.payment.CardPaymentOrchestrator
-import com.viwa.android.services.payment.PaymentTerminalService
+import com.viwa.android.services.payment.ControllerSbpNotifyService
 import com.viwa.android.services.payment.TerminalProductType
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -23,10 +23,6 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 
-/**
- * Task-05 п.9–11: маршрутизация карты/СБП через [DrinkListCardPaymentFlow] (без полного [DrinkListViewModel]).
- * П.12–14 — [DrinkListViewModelTask05IntegrationTest].
- */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DrinkListViewModelPaymentFlowTest {
 
@@ -72,38 +68,37 @@ class DrinkListViewModelPaymentFlowTest {
         runTest(scheduler) {
             val orch = mockk<CardPaymentOrchestrator>(relaxUnitFun = true)
             coEvery { orch.pay(any(), any(), any(), any()) } returns CardPaymentResult.Success
-            val terminal = mockk<PaymentTerminalService>(relaxUnitFun = true)
+            val sbp = mockk<ControllerSbpNotifyService>(relaxUnitFun = true)
             DrinkListCardPaymentFlow.runDrinkPaymentBeforePour(
                 sampleContainer(3),
                 volume = 300,
                 sbp = false,
                 cardPaymentOrchestrator = orch,
-                paymentTerminalService = terminal,
+                controllerSbpNotifyService = sbp,
             )
             coVerify(exactly = 1) {
                 orch.pay(TerminalProductType.Drink, price = 100, productNumber = 3, sbp = false)
             }
-            coVerify(exactly = 0) { terminal.sendSumToTerminal(any(), any(), any(), any()) }
+            coVerify(exactly = 0) { sbp.notifySbpPayment(any(), any(), any()) }
         }
 
     @Test
     fun task05_10_drinkSbpDoesNotCallCardOrchestratorPay() =
         runTest(scheduler) {
             val orch = mockk<CardPaymentOrchestrator>(relaxUnitFun = true)
-            val terminal = mockk<PaymentTerminalService>(relaxUnitFun = true)
+            val sbp = mockk<ControllerSbpNotifyService>(relaxUnitFun = true)
             DrinkListCardPaymentFlow.runDrinkPaymentBeforePour(
                 sampleContainer(3),
                 volume = 300,
                 sbp = true,
                 cardPaymentOrchestrator = orch,
-                paymentTerminalService = terminal,
+                controllerSbpNotifyService = sbp,
             )
             coVerify(exactly = 1) {
-                terminal.sendSumToTerminal(
+                sbp.notifySbpPayment(
                     TerminalProductType.Drink,
                     price = 100,
                     productNumber = 3,
-                    sbp = true,
                 )
             }
             coVerify(exactly = 0) { orch.pay(any(), any(), any(), any()) }

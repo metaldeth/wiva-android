@@ -5,7 +5,7 @@ import com.viwa.android.domain.model.CardPaymentMethod
 /**
  * Выбранный способ оплаты картой (см. [CardPaymentMethod]). В персистентности хранится строкой
  * `"PAX"` / `"AQSI"` ([CardPaymentMethod.STORAGE_PAX], [CardPaymentMethod.STORAGE_AQSI]).
- * При отсутствии записи, пустой/пробельной строке или неизвестном значении [getSelected] возвращает [CardPaymentMethod.Pax].
+ * При отсутствии записи, пустой/пробельной строке или неизвестном значении [getSelected] возвращает [CardPaymentMethod.Aqsi].
  */
 interface CardPaymentMethodRepository {
     suspend fun getSelected(): CardPaymentMethod

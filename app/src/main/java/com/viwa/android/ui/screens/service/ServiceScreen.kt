@@ -56,6 +56,10 @@ fun ServiceScreen(
             ServiceScreenLaunch.selectDashboardOnOpen = false
             viewModel.onServiceGroupSelected(ViwaServiceGroupId.Dashboard)
         }
+        if (ServiceScreenLaunch.selectEquipmentDevicesOnOpen) {
+            ServiceScreenLaunch.selectEquipmentDevicesOnOpen = false
+            viewModel.onServiceGroupSelected(ViwaServiceGroupId.Equipment)
+        }
     }
 
     val colorScheme = MaterialTheme.colorScheme

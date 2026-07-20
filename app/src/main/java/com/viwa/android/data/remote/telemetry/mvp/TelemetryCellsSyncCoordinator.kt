@@ -3,14 +3,19 @@ package com.viwa.android.data.remote.telemetry.mvp
 import com.viwa.android.data.remote.telemetry.mvp.cells.CellSchemaReportCellWire
 import com.viwa.android.data.remote.telemetry.mvp.cells.CellVolumeUpdateWire
 import com.viwa.android.data.remote.telemetry.mvp.cells.TelemetryCellsMessageCodec
+import com.viwa.android.domain.model.MachineCalibration
 import com.viwa.android.domain.model.TelemetryCell
 import com.viwa.android.domain.model.TelemetryCellsSnapshot
 import com.viwa.android.domain.repository.TelemetryCellsRepository
 import com.viwa.android.domain.telemetry.CellUuidAllocator
 import com.viwa.android.domain.telemetry.PhysicalCellDefinition
 import com.viwa.android.domain.telemetry.PhysicalCellSchemaProvider
+import com.viwa.android.services.calibration.SyrupCalibrationInventory
+import com.viwa.android.services.calibration.SyrupConversionFactorMigration
+import com.viwa.android.services.calibration.WaterCalibrationService
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
@@ -32,6 +37,9 @@ constructor(
     private val schemaProvider: PhysicalCellSchemaProvider,
     private val uuidAllocator: CellUuidAllocator,
     private val wsManager: MvpTelemetryWebSocketManager,
+    private val waterCalibrationService: WaterCalibrationService,
+    private val conversionFactorMigration: SyrupConversionFactorMigration,
+    private val syrupCalibrationInventory: SyrupCalibrationInventory,
 ) : MvpTelemetryCellsSyncHandler {
     private val json =
         Json {
@@ -42,19 +50,27 @@ constructor(
 
     /** Прогрев Flow/JsonStore до первой подписки (task-08 review M-2). */
     suspend fun warmUp() {
+        syrupCalibrationInventory.migrateLegacyConversionFactorsIfNeeded()
         repository.getSnapshot()
     }
 
     override suspend fun onWebSocketHello() {
         sendSchemaReport()
+        // Wait for optional post-schema cells.snapshot so dashboard waterPumpTenths wins
+        // before we uplink controller value (avoids overwriting offline PATCH).
+        delay(POST_SCHEMA_CALIBRATION_REPORT_DELAY_MS)
+        sendMachineCalibrationReport()
     }
 
     override suspend fun onCellsSnapshot(payloadJson: String) {
-        val snapshot = codec.decodeSnapshotPayload(payloadJson)
+        val legacyFactors = conversionFactorMigration.loadLegacyConversionFactors()
+        val decoded = codec.decodeSnapshotPayload(payloadJson, legacyConversionFactors = legacyFactors)
+        val snapshot = applyRemoteMachineCalibration(decoded)
         repository.replaceSnapshot(snapshot)
         Timber.i(
             "TelemetryCellsSync: snapshot applied revision=${snapshot.contentRevision} " +
-                "cells=${snapshot.cells.size} products=${snapshot.products.size}",
+                "cells=${snapshot.cells.size} products=${snapshot.products.size} " +
+                "waterPumpTenths=${snapshot.machineCalibration?.waterPumpTenths}",
         )
     }
 
@@ -93,6 +109,16 @@ constructor(
             .onSuccess { maybeSendInitialContentReport(snapshot) }
     }
 
+    private suspend fun sendMachineCalibrationReport() {
+        val tenths = waterCalibrationService.resolvePumpTenthsForUplink()
+        val payloadJson = codec.encodeMachineCalibrationReportPayload(tenths)
+        sendCellsMessage(type = "machine.calibration.report", payloadJson = payloadJson)
+            .onFailure { Timber.w(it, "TelemetryCellsSync: machine calibration report failed") }
+            .onSuccess {
+                Timber.i("TelemetryCellsSync: machine calibration report sent waterPumpTenths=$tenths")
+            }
+    }
+
     /** Recommended post-schema content report (OQ-9); отсутствие не блокирует flow. */
     internal suspend fun maybeSendInitialContentReport(snapshot: TelemetryCellsSnapshot?) {
         val cells = snapshot?.cells?.filter(::hasReportableContent).orEmpty()
@@ -118,6 +144,25 @@ constructor(
     ): Result<Unit> {
         val payloadObject = json.parseToJsonElement(payloadJson).jsonObject
         return wsManager.sendEnvelope(type = type, payload = payloadObject)
+    }
+
+    private suspend fun applyRemoteMachineCalibration(snapshot: TelemetryCellsSnapshot): TelemetryCellsSnapshot {
+        val remoteTenths = snapshot.machineCalibration?.waterPumpTenths ?: return snapshot
+        val clamped = remoteTenths.coerceIn(1, 255)
+        val currentTenths =
+            waterCalibrationService.readPumpTenths().getOrNull()
+                ?: waterCalibrationService.resolvePumpTenthsForUplink()
+        if (currentTenths == clamped) {
+            return snapshot.copy(machineCalibration = MachineCalibration(waterPumpTenths = clamped))
+        }
+        waterCalibrationService.writePumpTenths(clamped)
+            .onFailure {
+                Timber.w(it, "TelemetryCellsSync: failed to write waterPumpTenths=$clamped from snapshot")
+            }
+            .onSuccess {
+                Timber.i("TelemetryCellsSync: applied remote waterPumpTenths=$clamped to controller")
+            }
+        return snapshot.copy(machineCalibration = MachineCalibration(waterPumpTenths = clamped))
     }
 
     private suspend fun applyVolumeUpdatesToSnapshot(updates: List<CellVolumeUpdateWire>) {
@@ -151,6 +196,7 @@ constructor(
                         maxVolume = updated.maxVolume,
                         dosage1Price = updated.dosage1Price,
                         dosage2Price = updated.dosage2Price,
+                        conversionFactor = updated.conversionFactor,
                     )
                 } ?: cell
             }
@@ -193,4 +239,8 @@ constructor(
             cell.volume != 0 ||
             cell.dosage1Price != null ||
             cell.dosage2Price != null
+
+    private companion object {
+        const val POST_SCHEMA_CALIBRATION_REPORT_DELAY_MS = 1_500L
+    }
 }

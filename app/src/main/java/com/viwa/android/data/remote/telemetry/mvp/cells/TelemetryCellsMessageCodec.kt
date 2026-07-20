@@ -1,5 +1,6 @@
 package com.viwa.android.data.remote.telemetry.mvp.cells
 
+import com.viwa.android.domain.model.MachineCalibration
 import com.viwa.android.domain.model.TelemetryCell
 import com.viwa.android.domain.model.TelemetryCellsSnapshot
 import com.viwa.android.domain.model.TelemetryProduct
@@ -54,6 +55,7 @@ internal data class CellContentReportWire(
     val maxVolume: Int,
     val dosage1Price: Int? = null,
     val dosage2Price: Int? = null,
+    val conversionFactor: Double? = null,
 )
 
 @Serializable
@@ -81,6 +83,17 @@ internal data class CellFullWire(
     val maxVolume: Int,
     val dosage1Price: Int? = null,
     val dosage2Price: Int? = null,
+    val conversionFactor: Double? = null,
+)
+
+@Serializable
+internal data class MachineCalibrationWire(
+    val waterPumpTenths: Int,
+)
+
+@Serializable
+internal data class MachineCalibrationReportPayloadWire(
+    val waterPumpTenths: Int,
 )
 
 @Serializable
@@ -89,6 +102,7 @@ internal data class CellsSnapshotPayloadWire(
     val contentRevision: Int? = null,
     val products: List<ProductWire> = emptyList(),
     val cells: List<CellFullWire> = emptyList(),
+    val machineCalibration: MachineCalibrationWire? = null,
 )
 
 @Singleton
@@ -153,6 +167,8 @@ constructor() {
                     maxVolume = cell.maxVolume,
                     dosage1Price = cell.dosage1Price,
                     dosage2Price = cell.dosage2Price,
+                    conversionFactor =
+                        cell.conversionFactor.takeIf { it != TelemetryCell.DEFAULT_CONVERSION_FACTOR },
                 )
             }
         return json.encodeToString(
@@ -161,16 +177,24 @@ constructor() {
         )
     }
 
+    fun encodeMachineCalibrationReportPayload(waterPumpTenths: Int): String =
+        json.encodeToString(
+            MachineCalibrationReportPayloadWire.serializer(),
+            MachineCalibrationReportPayloadWire(waterPumpTenths = waterPumpTenths),
+        )
+
     fun decodeSnapshotPayload(
         payloadJson: String,
         savedAtEpochMs: Long = System.currentTimeMillis(),
+        legacyConversionFactors: Map<Int, Double> = emptyMap(),
     ): TelemetryCellsSnapshot {
         val wire = json.decodeFromString(CellsSnapshotPayloadWire.serializer(), payloadJson)
         return TelemetryCellsSnapshot(
             schemaHash = wire.schemaHash,
             contentRevision = wire.contentRevision,
             products = wire.products.map { it.toDomain() },
-            cells = wire.cells.map { it.toDomain() },
+            cells = wire.cells.map { it.toDomain(legacyConversionFactors) },
+            machineCalibration = wire.machineCalibration?.toDomain(),
             savedAtEpochMs = savedAtEpochMs,
         )
     }
@@ -187,7 +211,7 @@ private fun ProductWire.toDomain(): TelemetryProduct =
         tasteMediaKey = tasteMediaKey,
     )
 
-private fun CellFullWire.toDomain(): TelemetryCell =
+private fun CellFullWire.toDomain(legacyConversionFactors: Map<Int, Double>): TelemetryCell =
     TelemetryCell(
         uuid = uuid,
         cellNumber = cellNumber,
@@ -200,4 +224,11 @@ private fun CellFullWire.toDomain(): TelemetryCell =
         maxVolume = maxVolume,
         dosage1Price = dosage1Price,
         dosage2Price = dosage2Price,
+        conversionFactor =
+            conversionFactor
+                ?: legacyConversionFactors[cellNumber]
+                ?: TelemetryCell.DEFAULT_CONVERSION_FACTOR,
     )
+
+private fun MachineCalibrationWire.toDomain(): MachineCalibration =
+    MachineCalibration(waterPumpTenths = waterPumpTenths)

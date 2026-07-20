@@ -1,29 +1,21 @@
 package com.viwa.android.services.calibration
 
-import com.viwa.android.data.local.db.JsonStoreKeys
-import com.viwa.android.data.repository.ConfigRepository
 import com.viwa.android.domain.model.ContainerCalibrationInfo
+import com.viwa.android.domain.model.TelemetryCell
 import com.viwa.android.domain.repository.TelemetryCellsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlinx.serialization.builtins.MapSerializer
-import kotlinx.serialization.builtins.serializer
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 
-/** Калибровка сиропов на базе MVP cells snapshot (без legacy merge-inventory). */
+/** Калибровка сиропов на базе MVP cells snapshot (conversionFactor в ячейке). */
 @Singleton
 class SyrupCalibrationInventory
 @Inject
 constructor(
     private val cellsRepository: TelemetryCellsRepository,
-    private val configRepository: ConfigRepository,
+    private val conversionFactorMigration: SyrupConversionFactorMigration,
 ) {
-    private val json = Json { ignoreUnknownKeys = true }
-
     suspend fun listContainersForCalibration(): List<ContainerCalibrationInfo> {
         val snapshot = cellsRepository.getSnapshot() ?: return emptyList()
-        val factors = loadConversionFactors()
         return snapshot.cells
             .filter { !it.productUuid.isNullOrBlank() }
             .sortedBy { it.cellNumber }
@@ -31,7 +23,7 @@ constructor(
                 ContainerCalibrationInfo(
                     containerNumber = cell.cellNumber,
                     catalogTitle = cell.productName.orEmpty(),
-                    conversionFactor = factors[cell.cellNumber] ?: DEFAULT_CONVERSION_FACTOR,
+                    conversionFactor = cell.conversionFactor,
                     defaultProductMl = DEFAULT_PRODUCT_ML,
                 )
             }
@@ -40,14 +32,21 @@ constructor(
     suspend fun updateContainerConversionFactor(
         containerNumber: Int,
         newConversionFactor: Double,
-    ): Result<Unit> =
+    ): Result<TelemetryCell> =
         runCatching {
-            val factors = loadConversionFactors().toMutableMap()
-            factors[containerNumber] = newConversionFactor
-            configRepository.setJson(
-                JsonStoreKeys.SYRUP_CONVERSION_FACTORS,
-                json.encodeToString(MapSerializer(Int.serializer(), Double.serializer()), factors),
-            )
+            val snapshot =
+                cellsRepository.getSnapshot()
+                    ?: error("Cells snapshot отсутствует")
+            val cell =
+                snapshot.cells.find { it.cellNumber == containerNumber }
+                    ?: error("Контейнер $containerNumber не найден")
+            val updated = cell.copy(conversionFactor = newConversionFactor)
+            val mergedCells =
+                snapshot.cells.map { existing ->
+                    if (existing.cellNumber == containerNumber) updated else existing
+                }
+            cellsRepository.replaceSnapshot(snapshot.copy(cells = mergedCells))
+            updated
         }
 
     suspend fun findCellUuid(containerNumber: Int): String? =
@@ -56,15 +55,18 @@ constructor(
     suspend fun currentVolumeMl(containerNumber: Int): Int? =
         cellsRepository.getSnapshot()?.cells?.find { it.cellNumber == containerNumber }?.volume
 
-    companion object {
-        const val DEFAULT_CONVERSION_FACTOR = 4.0
-        const val DEFAULT_PRODUCT_ML = 30.0
+    /** One-time merge of legacy JsonStore factors into persisted snapshot. */
+    suspend fun migrateLegacyConversionFactorsIfNeeded() {
+        val snapshot = cellsRepository.getSnapshot() ?: return
+        val legacy = conversionFactorMigration.loadLegacyConversionFactors()
+        val merged = conversionFactorMigration.mergeLegacyIntoSnapshot(snapshot, legacy)
+        if (merged != snapshot) {
+            cellsRepository.replaceSnapshot(merged)
+        }
     }
 
-    private suspend fun loadConversionFactors(): Map<Int, Double> {
-        val raw = configRepository.getJson(JsonStoreKeys.SYRUP_CONVERSION_FACTORS) ?: return emptyMap()
-        return runCatching {
-            json.decodeFromString(MapSerializer(Int.serializer(), Double.serializer()), raw)
-        }.getOrDefault(emptyMap())
+    companion object {
+        const val DEFAULT_CONVERSION_FACTOR = TelemetryCell.DEFAULT_CONVERSION_FACTOR
+        const val DEFAULT_PRODUCT_ML = 30.0
     }
 }

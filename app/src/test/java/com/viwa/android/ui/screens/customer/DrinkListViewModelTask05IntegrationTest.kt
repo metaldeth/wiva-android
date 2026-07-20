@@ -36,7 +36,9 @@ import com.viwa.android.hardware.controller.ControllerTrafficEntry
 import com.viwa.android.hardware.controller.ViwaControllerTrafficLogger
 import com.viwa.android.services.payment.CardPaymentEventLogger
 import com.viwa.android.services.payment.CardPaymentOrchestrator
-import com.viwa.android.services.payment.PaymentTerminalService
+import com.viwa.android.data.payment.aqsi.AqsiUsbPaymentManager
+import com.viwa.android.data.payment.aqsi.UsbPaymentResult
+import com.viwa.android.services.payment.ControllerSbpNotifyService
 import com.viwa.android.services.preparing.CustomerPreparingPhase
 import com.viwa.android.services.preparing.PrepareDrinkResult
 import com.viwa.android.services.preparing.PreparingManager
@@ -166,17 +168,20 @@ class DrinkListViewModelTask05IntegrationTest {
         return r
     }
 
-    private fun createGatewayAndTerminal(
-        scope: CoroutineScope,
-        telemetry: ViwaTelemetryService,
-        configRepository: ConfigRepository = vmConfigRepo(),
-    ): Pair<ControllerGateway, PaymentTerminalService> {
+    private fun createGatewayAndPaymentMocks(): Pair<ControllerGateway, ControllerSbpNotifyService> {
         val gateway = mockk<ControllerGateway>(relaxUnitFun = true)
         val responses = MutableSharedFlow<ControllerResponseEvent>(extraBufferCapacity = 16)
         every { gateway.incomingResponses } returns responses.asSharedFlow()
         every { gateway.isPhysicalControllerConnected } returns MutableStateFlow(true).asStateFlow()
-        val pts = PaymentTerminalService(gateway, telemetry, scope, configRepository, CardPaymentEventLogger())
-        return gateway to pts
+        val sbp = mockk<ControllerSbpNotifyService>(relaxUnitFun = true)
+        return gateway to sbp
+    }
+
+    private fun mockAqsiManager(): AqsiUsbPaymentManager {
+        val m = mockk<AqsiUsbPaymentManager>(relaxed = true)
+        every { m.exchangeLogFlow } returns MutableStateFlow<List<String>>(emptyList()).asStateFlow()
+        every { m.terminalStatusFlow } returns MutableStateFlow("").asStateFlow()
+        return m
     }
 
     private fun createViewModel(
@@ -186,8 +191,8 @@ class DrinkListViewModelTask05IntegrationTest {
         getSBPLinkUseCase: GetSBPLinkUseCase,
         sbpRepository: SBPRepository = defaultSbpRepo(),
     ): DrinkListViewModel {
-        val payScope = CoroutineScope(SupervisorJob() + mainDispatcher)
-        val (gw, pts) = createGatewayAndTerminal(payScope, telemetryService)
+        val (gw, sbpNotify) = createGatewayAndPaymentMocks()
+        val aqsi = mockAqsiManager()
         val cellsRepo = mockk<TelemetryCellsRepository>(relaxUnitFun = true)
         every { cellsRepo.snapshotFlow } returns MutableStateFlow(null).asStateFlow()
         val checkSbp = mockk<CheckSBPStatusUseCase>(relaxUnitFun = true)
@@ -203,7 +208,8 @@ class DrinkListViewModelTask05IntegrationTest {
             cellsRepo,
             preparingManager,
             gw,
-            pts,
+            aqsi,
+            sbpNotify,
             telemetryService,
             getSBPLinkUseCase,
             checkSbp,
@@ -317,28 +323,37 @@ class DrinkListViewModelTask05IntegrationTest {
 
     private fun createSubscriptionVmWithAqsiOrchestrator(
         holder: AqsiLastOperationSnapshotHolder,
-        arcus: Task05RecordingArcus,
+        payResult: Result<AqsiPaymentResult>,
         telemetryService: ViwaTelemetryService = createTestTelemetry(),
         preparingOverride: PreparingManager? = null,
     ): DrinkListViewModel {
+        val usb = mockAqsiManager()
+        coEvery { usb.pay(any()) } answers {
+            val amount = arg<Int>(0)
+            when (val r = payResult.getOrNull()) {
+                AqsiPaymentResult.Approved -> UsbPaymentResult.Success("t", amount)
+                is AqsiPaymentResult.Declined ->
+                    UsbPaymentResult.Failure("AQSI_DECLINED_${r.publicCode}", r.publicCode)
+                AqsiPaymentResult.Cancelled -> UsbPaymentResult.Cancelled
+                is AqsiPaymentResult.Error -> UsbPaymentResult.Failure("ERR", r.safeMessage)
+                null -> throw payResult.exceptionOrNull() ?: IllegalStateException("pay_failed")
+            }
+        }
         val aqsiRepo =
             AqsiRepositoryImpl(
                 configRepository = aqsiTestConfig(),
-                arcus2 = arcus,
+                usbPaymentManager = usb,
                 lastOperationSnapshotHolder = holder,
                 paymentEventLogger = CardPaymentEventLogger(),
                 ioDispatcher = Dispatchers.Unconfined,
             )
-        val payScope = CoroutineScope(SupervisorJob() + mainDispatcher)
-        val (gw, pts) = createGatewayAndTerminal(payScope, telemetryService)
+        val (gw, sbpNotify) = createGatewayAndPaymentMocks()
         coEvery { gw.simulateResponseForTests(any(), any()) } returns Unit
         val orch =
             CardPaymentOrchestrator(
-                FakeCardMethodRepo(CardPaymentMethod.Aqsi),
-                pts,
-                aqsiRepo,
-                FakeMockModeRepo(),
-                CardPaymentEventLogger(),
+                aqsiRepository = aqsiRepo,
+                cardPaymentMockModeRepository = FakeMockModeRepo(),
+                paymentEventLogger = CardPaymentEventLogger(),
             )
         val preparing =
             preparingOverride
@@ -363,7 +378,8 @@ class DrinkListViewModelTask05IntegrationTest {
             cellsRepo,
             preparing,
             gw,
-            pts,
+            usb,
+            sbpNotify,
             telemetryService,
             getSbp,
             checkSbp,
@@ -469,11 +485,11 @@ class DrinkListViewModelTask05IntegrationTest {
     fun task05_14_aqsiApprovedFromOrder_updatesDiagnosticHolder() =
         runBlocking {
             val holder = AqsiLastOperationSnapshotHolder()
-            val arcus =
-                Task05RecordingArcus(
+            val vm =
+                createSubscriptionVmWithAqsiOrchestrator(
+                    holder,
                     payResult = Result.success(AqsiPaymentResult.Approved),
                 )
-            val vm = createSubscriptionVmWithAqsiOrchestrator(holder, arcus)
             vm.setUiStateForUnitTests(
                 DrinkListUiState(
                     scannedSubscriptionClientId = "client-uuid",
@@ -492,11 +508,11 @@ class DrinkListViewModelTask05IntegrationTest {
     fun task05_14_aqsiDeclineFromOrder_updatesDiagnosticHolder() =
         runBlocking {
             val holder = AqsiLastOperationSnapshotHolder()
-            val arcus =
-                Task05RecordingArcus(
+            val vm =
+                createSubscriptionVmWithAqsiOrchestrator(
+                    holder,
                     payResult = Result.success(AqsiPaymentResult.Declined(publicCode = "051")),
                 )
-            val vm = createSubscriptionVmWithAqsiOrchestrator(holder, arcus)
             vm.setUiStateForUnitTests(
                 DrinkListUiState(
                     scannedSubscriptionClientId = "client-uuid",
@@ -515,11 +531,11 @@ class DrinkListViewModelTask05IntegrationTest {
     fun task05_14_aqsiErrorFromOrder_updatesDiagnosticHolder() =
         runBlocking {
             val holder = AqsiLastOperationSnapshotHolder()
-            val arcus =
-                Task05RecordingArcus(
+            val vm =
+                createSubscriptionVmWithAqsiOrchestrator(
+                    holder,
                     payResult = Result.success(AqsiPaymentResult.Error(safeMessage = "timeout")),
                 )
-            val vm = createSubscriptionVmWithAqsiOrchestrator(holder, arcus)
             vm.setUiStateForUnitTests(
                 DrinkListUiState(
                     scannedSubscriptionClientId = "client-uuid",
@@ -538,11 +554,11 @@ class DrinkListViewModelTask05IntegrationTest {
     fun task05_14_aqsiCancelledFromOrder_updatesDiagnosticHolder() =
         runBlocking {
             val holder = AqsiLastOperationSnapshotHolder()
-            val arcus =
-                Task05RecordingArcus(
+            val vm =
+                createSubscriptionVmWithAqsiOrchestrator(
+                    holder,
                     payResult = Result.success(AqsiPaymentResult.Cancelled),
                 )
-            val vm = createSubscriptionVmWithAqsiOrchestrator(holder, arcus)
             vm.setUiStateForUnitTests(
                 DrinkListUiState(
                     scannedSubscriptionClientId = "client-uuid",
@@ -567,11 +583,12 @@ class DrinkListViewModelTask05IntegrationTest {
             every { tel.startSubscriptionSaleTimer(any(), any(), any(), any()) } returns Unit
 
             val holder = AqsiLastOperationSnapshotHolder()
-            val arcus =
-                Task05RecordingArcus(
+            val vm =
+                createSubscriptionVmWithAqsiOrchestrator(
+                    holder,
                     payResult = Result.success(AqsiPaymentResult.Approved),
+                    telemetryService = tel,
                 )
-            val vm = createSubscriptionVmWithAqsiOrchestrator(holder, arcus, tel)
             vm.setUiStateForUnitTests(
                 DrinkListUiState(
                     scannedSubscriptionClientId = "client-uuid",
@@ -608,11 +625,12 @@ class DrinkListViewModelTask05IntegrationTest {
             val tel = createTestTelemetry()
             coEvery { tel.sendSaleSubscribeTopic(any()) } returns Result.success(Unit)
             val holder = AqsiLastOperationSnapshotHolder()
-            val arcus =
-                Task05RecordingArcus(
+            val vm =
+                createSubscriptionVmWithAqsiOrchestrator(
+                    holder,
                     payResult = Result.success(AqsiPaymentResult.Cancelled),
+                    telemetryService = tel,
                 )
-            val vm = createSubscriptionVmWithAqsiOrchestrator(holder, arcus, tel)
             vm.setUiStateForUnitTests(
                 DrinkListUiState(
                     scannedSubscriptionClientId = "client-uuid",
@@ -643,15 +661,11 @@ class DrinkListViewModelTask05IntegrationTest {
                 PrepareDrinkResult.Ok(estSeconds = 30)
 
             val holder = AqsiLastOperationSnapshotHolder()
-            val arcus =
-                Task05RecordingArcus(
-                    payResult = Result.success(AqsiPaymentResult.Approved),
-                )
             val vm =
                 createSubscriptionVmWithAqsiOrchestrator(
                     holder,
-                    arcus,
-                    tel,
+                    payResult = Result.success(AqsiPaymentResult.Approved),
+                    telemetryService = tel,
                     preparingOverride = preparing,
                 )
             vm.setUiStateForUnitTests(

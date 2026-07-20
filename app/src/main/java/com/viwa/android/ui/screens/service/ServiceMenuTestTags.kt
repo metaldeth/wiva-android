@@ -32,6 +32,10 @@ object ServiceMenuTestTags {
     const val TELEMETRY_WS_URL_INPUT = "telemetry_ws_url_input"
     const val TELEMETRY_SAVE_ADDRESSES = "telemetry_save_addresses"
 
+    const val CONTROLLER_PORT_ROOT = "controller_port_root"
+    const val CONTROLLER_PORT_DROPDOWN = "controller_port_dropdown"
+    const val CONTROLLER_PORT_CONNECT = "controller_port_connect"
+
     fun serviceGroupTag(groupId: ViwaServiceGroupId): String =
         when (groupId) {
             ViwaServiceGroupId.Dashboard -> "service_group_dashboard"
@@ -62,6 +66,8 @@ object ServiceMenuTestTags {
             ViwaServiceSubTabId.Sbp -> "service_subtab_sbp"
             ViwaServiceSubTabId.Nanokassa -> "service_subtab_nanokassa"
             ViwaServiceSubTabId.Max -> "service_subtab_max"
+            ViwaServiceSubTabId.Devices -> "service_subtab_devices"
+            ViwaServiceSubTabId.Ports -> "service_subtab_ports"
             ViwaServiceSubTabId.Controller -> "service_subtab_controller"
             ViwaServiceSubTabId.Payment -> "service_subtab_payment"
             ViwaServiceSubTabId.Scanner -> "service_subtab_scanner"
@@ -78,7 +84,6 @@ object ServiceMenuTestTags {
             ViwaServiceSubTabId.Animation -> "service_subtab_animation"
             ViwaServiceSubTabId.MetricsMemory -> "service_subtab_metrics_memory"
             ViwaServiceSubTabId.CardPaymentMethod -> "service_subtab_card_payment_method"
-            ViwaServiceSubTabId.TwoCanServiceSettings -> "service_subtab_two_can_settings"
             ViwaServiceSubTabId.AqsiServiceSettings -> "service_subtab_aqsi_settings"
             ViwaServiceSubTabId.AqsiServiceDiagnostics -> "service_subtab_aqsi_diagnostics"
         }
@@ -108,6 +113,9 @@ object ServiceMenuTestTags {
             TELEMETRY_API_URL_INPUT,
             TELEMETRY_WS_URL_INPUT,
             TELEMETRY_SAVE_ADDRESSES,
+            CONTROLLER_PORT_ROOT,
+            CONTROLLER_PORT_DROPDOWN,
+            CONTROLLER_PORT_CONNECT,
         ) +
             ViwaServiceMenuGroups.map { serviceGroupTag(it.id) }.toSet() +
             ViwaServiceMenuGroups.flatMap { group -> group.subTabs.map { serviceSubTabTag(it.id) } }.toSet()

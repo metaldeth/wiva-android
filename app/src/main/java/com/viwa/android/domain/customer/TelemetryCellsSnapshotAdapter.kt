@@ -14,9 +14,9 @@ import com.viwa.android.domain.model.customer.DrinkTaste
  * Цены: копейки → рубли; blockVolume → minVolumeMl для [DrinkContainer.isUnavailable].
  */
 object TelemetryCellsSnapshotAdapter {
-    private val defaultDosage =
+    private val defaultDosageTemplate =
         DrinkDosage(
-            conversionFactor = 1.0,
+            conversionFactor = TelemetryCell.DEFAULT_CONVERSION_FACTOR,
             drinkVolume = 300,
             product = 30.0,
             water = 270.0,
@@ -52,7 +52,7 @@ object TelemetryCellsSnapshotAdapter {
                             mediaKey = tasteMediaKey,
                             hexColor = null,
                         ),
-                    dosage = defaultDosage,
+                    dosage = defaultDosageTemplate.copy(conversionFactor = cell.conversionFactor),
                     dPrices = prices,
                 ),
             volumeMl = cell.volume,

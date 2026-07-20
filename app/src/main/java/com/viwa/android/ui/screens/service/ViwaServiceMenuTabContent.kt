@@ -45,15 +45,18 @@ import com.viwa.android.ui.screens.service.tabs.ViwaControllerDebugTab
 import com.viwa.android.ui.screens.service.tabs.ViwaIdleTab
 import com.viwa.android.ui.screens.service.tabs.ViwaSyrupCalibrationTab
 import com.viwa.android.ui.screens.service.tabs.ViwaWaterCalibrationTab
-import com.viwa.android.ui.screens.service.tabs.ViwaEquipmentScannerTab
+import com.viwa.android.ui.screens.service.devices.ViwaDevicesControllerTab
+import com.viwa.android.ui.screens.service.devices.ViwaDevicesPaymentTab
+import com.viwa.android.ui.screens.service.devices.ViwaDevicesPortsTab
+import com.viwa.android.ui.screens.service.devices.ViwaDevicesScannerTab
+import com.viwa.android.ui.screens.service.devices.ViwaDevicesTab
+import com.viwa.android.ui.screens.service.tabs.ViwaEquipmentRfidTab
 import com.viwa.android.ui.screens.service.tabs.ViwaInventoryVolumesTab
 import com.viwa.android.ui.screens.service.tabs.ViwaTelemetryInventoryTab
 import com.viwa.android.ui.screens.service.tabs.ViwaAnimationTab
 import com.viwa.android.ui.screens.service.tabs.ViwaAqsiDiagnosticsTab
 import com.viwa.android.ui.screens.service.tabs.ViwaAqsiSettingsTab
 import com.viwa.android.ui.screens.service.tabs.ViwaCardPaymentMethodTab
-import com.viwa.android.ui.screens.service.tabs.ViwaTwoCanPaymentSettingsTab
-import com.viwa.android.ui.screens.service.tabs.ViwaEquipmentRfidTab
 import com.viwa.android.ui.screens.service.tabs.ViwaPreparingTimeTab
 import com.viwa.android.ui.screens.service.tabs.ViwaFlowStripRgbSection
 import com.viwa.android.ui.screens.service.tabs.ViwaThemePrimaryButtonColorSection
@@ -103,7 +106,6 @@ fun ViwaServiceMenuTabContent(
         ViwaServiceGroupId.CardPayment ->
             when (state.selectedServiceSubTabId) {
                 ViwaServiceSubTabId.CardPaymentMethod -> ViwaCardPaymentMethodTab()
-                ViwaServiceSubTabId.TwoCanServiceSettings -> ViwaTwoCanPaymentSettingsTab()
                 ViwaServiceSubTabId.AqsiServiceSettings -> ViwaAqsiSettingsTab()
                 ViwaServiceSubTabId.AqsiServiceDiagnostics -> ViwaAqsiDiagnosticsTab()
                 else -> ViwaCardPaymentMethodTab()
@@ -111,11 +113,13 @@ fun ViwaServiceMenuTabContent(
 
         ViwaServiceGroupId.Equipment ->
             when (state.selectedServiceSubTabId) {
-                ViwaServiceSubTabId.Controller -> ViwaEquipmentControllerTab(state, viewModel)
-                ViwaServiceSubTabId.Payment -> ViwaEquipmentPaymentTab(state, viewModel)
-                ViwaServiceSubTabId.Scanner -> ViwaEquipmentScannerTab(state, viewModel)
+                ViwaServiceSubTabId.Devices -> ViwaDevicesTab()
+                ViwaServiceSubTabId.Ports -> ViwaDevicesPortsTab()
+                ViwaServiceSubTabId.Controller -> ViwaDevicesControllerTab()
+                ViwaServiceSubTabId.Payment -> ViwaDevicesPaymentTab()
+                ViwaServiceSubTabId.Scanner -> ViwaDevicesScannerTab()
                 ViwaServiceSubTabId.Rfid -> ViwaEquipmentRfidTab(state, viewModel)
-                else -> ViwaEquipmentControllerTab(state, viewModel)
+                else -> ViwaDevicesTab()
             }
 
         ViwaServiceGroupId.Maintenance ->
@@ -908,15 +912,15 @@ private fun ViwaEquipmentPaymentTab(
 ) {
     val terminalStatus by viewModel.terminalVendStatusLine.collectAsStateWithLifecycle()
     SettingsColumn {
-        Text("Платёжник", style = MaterialTheme.typography.headlineSmall)
+        Text("aQsi USB", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
-        InfoRow("PAX (0x56)", terminalStatus)
+        InfoRow("Статус терминала", terminalStatus)
         Spacer(Modifier.height(12.dp))
         Button(
             onClick = { viewModel.runPaymentTerminal048Demo() },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            Text("Тест 0x48 — сумма на терминал")
+            Text("Тест 0x48 — уведомление контроллера (СБП)")
         }
         state.paymentTerminalTestBanner?.let { banner ->
             Spacer(Modifier.height(8.dp))

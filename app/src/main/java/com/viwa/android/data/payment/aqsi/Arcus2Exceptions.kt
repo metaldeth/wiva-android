@@ -1,4 +1,4 @@
-package com.viwa.android.data.payment.aqsi
+﻿package com.viwa.android.data.payment.aqsi
 
 /** Ошибка разбора кадра Arcus2 / BinLen без чувствительных деталей в сообщении. */
 class Arcus2ProtocolException(message: String) : Exception(message)

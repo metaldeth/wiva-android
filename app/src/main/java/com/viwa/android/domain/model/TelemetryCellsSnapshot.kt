@@ -9,5 +9,6 @@ data class TelemetryCellsSnapshot(
     val contentRevision: Int? = null,
     val products: List<TelemetryProduct> = emptyList(),
     val cells: List<TelemetryCell> = emptyList(),
+    val machineCalibration: MachineCalibration? = null,
     val savedAtEpochMs: Long = 0L,
 )

@@ -47,12 +47,42 @@ class TelemetryCellsSnapshotAdapterTest {
         val container = containers.first()
         assertEquals(1, container.containerNumber)
         assertEquals("Чёрная вишня", container.product.name)
+        assertEquals(TelemetryCell.DEFAULT_CONVERSION_FACTOR, container.product.dosage.conversionFactor, 0.0001)
         assertEquals("cherry", container.product.taste.mediaKey)
         assertEquals(1200, container.volumeMl)
         assertEquals(100, container.minVolumeMl)
         assertEquals(listOf(300 to 99, 700 to 149), container.product.dPrices.map { it.volume to it.priceRub })
         assertNotNull(ViwaElectronAssets.horizontalCardImageUri(container.product.taste.mediaKey))
         assertTrue(ViwaElectronAssets.hasPreparingVideoAsset(container.product.taste.mediaKey))
+    }
+
+    @Test
+    fun conversionFactor_mapsToDrinkDosage() {
+        // given
+        val snapshot =
+            TelemetryCellsSnapshot(
+                products = listOf(TelemetryProduct("prod-1", "Лимон", "lemon")),
+                cells =
+                    listOf(
+                        TelemetryCell(
+                            uuid = "cell-1",
+                            cellNumber = 1,
+                            productUuid = "prod-1",
+                            productName = "Лимон",
+                            tasteMediaKey = "lemon",
+                            volume = 1000,
+                            maxVolume = 5000,
+                            dosage1Price = 5000,
+                            conversionFactor = 7.25,
+                        ),
+                    ),
+            )
+
+        // when
+        val container = TelemetryCellsSnapshotAdapter.toDrinkContainers(snapshot).single()
+
+        // then
+        assertEquals(7.25, container.product.dosage.conversionFactor, 0.0001)
     }
 
     @Test

@@ -37,8 +37,7 @@ fun ViwaAqsiDiagnosticsTab(
         Text("Новый считыватель — тесты и журнал", style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
         Text(
-            "Порядок: (1) выберите aQsi активным методом; (2) включите или выключите mock отдельно — это не отправляет оплату; " +
-                "(3) запускайте mock-сценарии или реальный тест 1 коп.; журнал — те же карточки OUT/IN/MOCK/SYS, что и для 2can.",
+            "Порядок: (1) при необходимости включите mock; (2) mock-сценарии или реальный тест 1 ₽ по USB; журнал — OUT/IN/MOCK/SYS и logcat AQSI.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -154,7 +153,7 @@ fun ViwaAqsiDiagnosticsTab(
         Spacer(Modifier.height(12.dp))
         Text("Шаг 4 · Реальный терминал и отмена", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Тест 1 коп.: TCP к сохранённому host/port ридера. Отмена — отдельная кнопка.",
+            "Тест 1 ₽: USB Arcus2 через [AqsiUsbPaymentManager]. Отмена — отдельная кнопка.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -165,7 +164,7 @@ fun ViwaAqsiDiagnosticsTab(
                 enabled = !ui.pennyTestBusy,
                 modifier = Modifier.weight(1f),
             ) {
-                Text("Реальный тест 1 коп.")
+                Text("Реальный тест 1 ₽")
             }
             Spacer(Modifier.width(8.dp))
             OutlinedButton(
@@ -200,7 +199,7 @@ fun ViwaAqsiDiagnosticsTab(
         Spacer(Modifier.height(12.dp))
         Text("Журнал платёжника", style = MaterialTheme.typography.titleMedium)
         Text(
-            "Общий журнал с вкладкой 2can. Раскройте карточку для провайдера, исхода и полного текста ошибки.",
+            "Журнал платёжника (OUT/IN/MOCK/SYS). Низкоуровневый Arcus2 exchange — logcat AQSI и exchangeLogFlow.",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -219,6 +218,5 @@ fun ViwaAqsiDiagnosticsTab(
 private fun mockModeLabel(mode: CardPaymentMockMode): String =
     when (mode) {
         CardPaymentMockMode.Disabled -> "mock выключен"
-        CardPaymentMockMode.TwoCan -> "mock для 2can (не для этой вкладки)"
-        CardPaymentMockMode.Aqsi -> "mock включён для нового считывателя"
+        CardPaymentMockMode.Aqsi -> "mock включён для aQsi"
     }

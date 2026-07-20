@@ -10,6 +10,9 @@ import com.viwa.android.domain.model.TelemetryProduct
 import com.viwa.android.domain.model.TelemetryConfig
 import com.viwa.android.domain.telemetry.CellUuidAllocator
 import com.viwa.android.domain.telemetry.DefaultPhysicalCellSchemaProvider
+import com.viwa.android.services.calibration.SyrupCalibrationInventory
+import com.viwa.android.services.calibration.SyrupConversionFactorMigration
+import com.viwa.android.services.calibration.WaterCalibrationService
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -42,6 +45,9 @@ class TelemetryCellsSyncCoordinatorTest {
     private lateinit var configRepository: FakeConfigRepository
     private lateinit var repository: TelemetryCellsRepositoryImpl
     private lateinit var wsManager: MvpTelemetryWebSocketManager
+    private lateinit var waterCalibrationService: WaterCalibrationService
+    private lateinit var conversionFactorMigration: SyrupConversionFactorMigration
+    private lateinit var syrupCalibrationInventory: SyrupCalibrationInventory
     private lateinit var coordinator: TelemetryCellsSyncCoordinator
 
     @Before
@@ -49,6 +55,13 @@ class TelemetryCellsSyncCoordinatorTest {
         configRepository = FakeConfigRepository()
         repository = TelemetryCellsRepositoryImpl(configRepository)
         wsManager = mockk(relaxed = true)
+        waterCalibrationService = mockk(relaxed = true)
+        conversionFactorMigration = mockk(relaxed = true)
+        syrupCalibrationInventory = mockk(relaxed = true)
+        coEvery { conversionFactorMigration.loadLegacyConversionFactors() } returns emptyMap()
+        coEvery { waterCalibrationService.resolvePumpTenthsForUplink() } returns 3
+        coEvery { waterCalibrationService.readPumpTenths() } returns Result.failure(IllegalStateException("offline"))
+        coEvery { waterCalibrationService.writePumpTenths(any()) } returns Result.success(Unit)
         coordinator =
             TelemetryCellsSyncCoordinator(
                 repository = repository,
@@ -56,6 +69,9 @@ class TelemetryCellsSyncCoordinatorTest {
                 schemaProvider = schemaProvider,
                 uuidAllocator = uuidAllocator,
                 wsManager = wsManager,
+                waterCalibrationService = waterCalibrationService,
+                conversionFactorMigration = conversionFactorMigration,
+                syrupCalibrationInventory = syrupCalibrationInventory,
             )
         coEvery { wsManager.sendEnvelope(any(), any()) } returns Result.success(Unit)
     }
@@ -88,6 +104,7 @@ class TelemetryCellsSyncCoordinatorTest {
 
         // then
         coVerify { wsManager.sendEnvelope("cells.schema.report", any()) }
+        coVerify { wsManager.sendEnvelope("machine.calibration.report", any()) }
         val cells = payloadSlot.captured["cells"]!!.jsonArray
         assertEquals(DefaultPhysicalCellSchemaProvider.DEFAULT_CELL_COUNT, cells.size)
         val first = cells.first().jsonObject
@@ -224,7 +241,8 @@ class TelemetryCellsSyncCoordinatorTest {
             ),
         )
         val payloadSlot = slot<kotlinx.serialization.json.JsonObject>()
-        coEvery { wsManager.sendEnvelope(any(), capture(payloadSlot)) } returns Result.success(Unit)
+        coEvery { wsManager.sendEnvelope("cells.schema.report", capture(payloadSlot)) } returns Result.success(Unit)
+        coEvery { wsManager.sendEnvelope("machine.calibration.report", any()) } returns Result.success(Unit)
 
         // when — first reconnect
         coordinator.onWebSocketHello()
@@ -323,6 +341,28 @@ class TelemetryCellsSyncCoordinatorTest {
     }
 
     @Test
+    fun `snapshot with machineCalibration writes pump tenths to controller`() = runTest {
+        // given
+        coEvery { waterCalibrationService.readPumpTenths() } returns Result.success(5)
+        val payloadJson =
+            """
+            {
+              "schemaHash": "hash",
+              "contentRevision": 1,
+              "cells": [],
+              "machineCalibration": { "waterPumpTenths": 7 }
+            }
+            """.trimIndent()
+
+        // when
+        coordinator.onCellsSnapshot(payloadJson)
+
+        // then
+        coVerify { waterCalibrationService.writePumpTenths(7) }
+        assertEquals(7, repository.getSnapshot()?.machineCalibration?.waterPumpTenths)
+    }
+
+    @Test
     fun `schema ack persists server schemaHash for next reconnect`() = runTest {
         // given
         repository.replaceSnapshot(
@@ -344,6 +384,23 @@ class TelemetryCellsSyncCoordinatorTest {
         assertEquals("ack-hash-from-server", repository.getSnapshot()?.schemaHash)
     }
 
+    @Test
+    fun `content change merges conversionFactor in snapshot`() = runTest {
+        // given
+        repository.replaceSnapshot(
+            TelemetryCellsSnapshot(
+                cells = listOf(sampleCell(uuid = "u1", cellNumber = 1, conversionFactor = 4.0)),
+            ),
+        )
+        val edited = sampleCell(uuid = "u1", cellNumber = 1, conversionFactor = 5.5)
+
+        // when
+        coordinator.onLocalContentChange(listOf(edited))
+
+        // then
+        assertEquals(5.5, repository.getSnapshot()!!.cells.single().conversionFactor, 0.0001)
+    }
+
     private fun sampleCell(
         uuid: String,
         cellNumber: Int,
@@ -352,6 +409,7 @@ class TelemetryCellsSyncCoordinatorTest {
         productName: String? = null,
         tasteMediaKey: String? = null,
         dosage1Price: Int? = null,
+        conversionFactor: Double = TelemetryCell.DEFAULT_CONVERSION_FACTOR,
     ): TelemetryCell =
         TelemetryCell(
             uuid = uuid,
@@ -362,6 +420,7 @@ class TelemetryCellsSyncCoordinatorTest {
             volume = volume,
             maxVolume = DefaultPhysicalCellSchemaProvider.DEFAULT_MAX_VOLUME_ML,
             dosage1Price = dosage1Price,
+            conversionFactor = conversionFactor,
         )
 
     private class FakeConfigRepository : ConfigRepository {

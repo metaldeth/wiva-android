@@ -1,4 +1,4 @@
-package com.viwa.android.data.payment.aqsi
+﻿package com.viwa.android.data.payment.aqsi
 
 import com.viwa.android.BuildConfig
 import com.viwa.android.domain.model.AqsiPaymentResult

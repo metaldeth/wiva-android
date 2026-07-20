@@ -1,140 +1,80 @@
 package com.viwa.android.services.payment
 
 import com.viwa.android.domain.model.AqsiPaymentResult
-import com.viwa.android.domain.model.CardPaymentMethod
 import com.viwa.android.domain.model.CardPaymentMockMode
 import com.viwa.android.domain.model.CardPaymentMockOutcome
 import com.viwa.android.domain.model.CardPaymentResult
 import com.viwa.android.domain.repository.AqsiRepository
-import com.viwa.android.domain.repository.CardPaymentMethodRepository
 import com.viwa.android.domain.repository.CardPaymentMockModeRepository
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import timber.log.Timber
 
 /**
- * Единая точка оплаты **картой** (не СБП) с экрана заказа: напиток и подписка.
- * PAX — только делегирование в [PaymentTerminalService.sendSumToTerminal]; aQsi — [AqsiRepository.initiatePayment].
- *
- * Создаётся в [com.viwa.android.di.AqsiModule.provideCardPaymentOrchestrator] с одним [CardPaymentEventLogger] на всё приложение.
+ * Единая точка оплаты **картой** (не СБП): USB Arcus2 через [AqsiRepository].
  */
 class CardPaymentOrchestrator(
-    private val cardPaymentMethodRepository: CardPaymentMethodRepository,
-    private val paymentTerminalService: PaymentTerminalService,
     private val aqsiRepository: AqsiRepository,
     private val cardPaymentMockModeRepository: CardPaymentMockModeRepository,
     private val paymentEventLogger: CardPaymentEventLogger,
 ) {
-    private val gate = Any()
-    @Volatile private var activeBranchForCancel: CardPaymentMethod? = null
+    @Volatile
+    private var paymentInProgress = false
 
- /**
- * Параметры совпадают с [PaymentTerminalService.sendSumToTerminal] (сумма в рублях, как в приложении).
- */
     suspend fun pay(
         type: TerminalProductType,
         price: Int,
         productNumber: Int,
         sbp: Boolean,
     ): CardPaymentResult {
-        val method = cardPaymentMethodRepository.getSelected()
+        check(!sbp) { "CardPaymentOrchestrator handles card payments only; use ControllerSbpNotifyService for SBP" }
         val mockMode = cardPaymentMockModeRepository.getMode()
-        synchronized(gate) {
-            activeBranchForCancel = method
-        }
+        paymentInProgress = true
         Timber.tag(TAG).i(
-            "pay start method=%s mock=%s type=%s price=%d product=%d sbp=%s",
-            method,
+            "pay start mock=%s type=%s price=%d product=%d",
             mockMode,
             type.name,
             price,
             productNumber,
-            sbp,
         )
         return try {
-            mockPaymentIfEnabled(method, mockMode, price)?.let { return it }
-            when (method) {
-                CardPaymentMethod.Pax -> payPax(type, price, productNumber, sbp)
-                CardPaymentMethod.Aqsi -> payAqsi(price)
-            }
+            mockPaymentIfEnabled(mockMode, price)?.let { return it }
+            payAqsi(price)
         } catch (e: CancellationException) {
             Timber.tag(TAG).i("pay cancelled")
             throw e
         } finally {
-            synchronized(gate) {
-                if (activeBranchForCancel === method) {
-                    activeBranchForCancel = null
-                }
-            }
+            paymentInProgress = false
             Timber.tag(TAG).i("pay finished")
         }
     }
 
- /**
- * Отмена активной карточной сессии: PAX — [PaymentTerminalService.cancelTransaction]; aQsi — [AqsiRepository.cancelPayment].
- * Желательно вызывать **до** [kotlinx.coroutines.Job.cancel] платёжной корутины.
- */
     suspend fun cancelActivePayment() {
-        val m =
-            synchronized(gate) {
-                val x = activeBranchForCancel
-                activeBranchForCancel = null
-                x
-            } ?: run {
-                Timber.tag(TAG).d("cancelActivePayment: no active branch")
-                return
-            }
-        Timber.tag(TAG).i("cancelActivePayment branch=%s", m)
-        when (m) {
-            CardPaymentMethod.Pax -> {
-                paymentEventLogger.info(
-                    "2can",
-                    "Отмена активной операции",
-                    lane = CardPaymentLogLane.System,
-                )
-                paymentTerminalService.cancelTransaction()
-            }
-            CardPaymentMethod.Aqsi ->
-                aqsiRepository.cancelPayment().onFailure {
-                    paymentEventLogger.error(
-                        "Новый считыватель",
-                        "Ошибка отмены",
-                        it.message ?: it.javaClass.simpleName,
-                        lane = CardPaymentLogLane.FromTerminal,
-                    )
-                    Timber.tag(TAG).w(it, "cancelActivePayment: AQSI cancel failed")
-                }
+        if (!paymentInProgress) {
+            Timber.tag(TAG).d("cancelActivePayment: no active payment")
+            return
         }
-    }
-
-    private suspend fun payPax(
-        type: TerminalProductType,
-        price: Int,
-        productNumber: Int,
-        sbp: Boolean,
-    ): CardPaymentResult {
-        return try {
-            paymentTerminalService.sendSumToTerminal(type, price, productNumber, sbp)
-            when (val terminalResult = paymentTerminalService.waitForPaymentResult()) {
-                PaymentTerminalResult.Approved -> CardPaymentResult.Success
-                PaymentTerminalResult.Declined -> CardPaymentResult.Failed("2can: оплата отклонена")
-                PaymentTerminalResult.Cancelled -> CardPaymentResult.Cancelled
-                PaymentTerminalResult.Timeout -> CardPaymentResult.Failed("2can: таймаут ожидания оплаты")
-                is PaymentTerminalResult.Error -> CardPaymentResult.Failed(terminalResult.reason)
-            }
-        } catch (e: CancellationException) {
-            paymentTerminalService.cancelTransaction()
-            throw e
-        } catch (e: Exception) {
-            Timber.tag(TAG).w(e, "PAX delegation failed")
-            CardPaymentResult.Failed(e.message?.take(256) ?: "payment_failed")
+        Timber.tag(TAG).i("cancelActivePayment AQSI")
+        paymentEventLogger.info(
+            "aQsi",
+            "Отмена активной операции",
+            lane = CardPaymentLogLane.System,
+        )
+        aqsiRepository.cancelPayment().onFailure {
+            paymentEventLogger.error(
+                "aQsi",
+                "Ошибка отмены",
+                it.message ?: it.javaClass.simpleName,
+                lane = CardPaymentLogLane.FromTerminal,
+            )
+            Timber.tag(TAG).w(it, "cancelActivePayment: AQSI cancel failed")
         }
     }
 
     private suspend fun payAqsi(priceRub: Int): CardPaymentResult {
         val kopecks = priceRub.coerceAtLeast(0) * 100
         paymentEventLogger.info(
-            "Новый считыватель",
+            "aQsi",
             "Запуск оплаты",
             "$kopecks коп.",
             lane = CardPaymentLogLane.ToTerminal,
@@ -144,7 +84,7 @@ class CardPaymentOrchestrator(
                 onSuccess = { mapAqsiToCard(it) },
                 onFailure = { e ->
                     paymentEventLogger.error(
-                        "Новый считыватель",
+                        "aQsi",
                         "Ошибка оплаты",
                         safeThrowableMessage(e),
                         lane = CardPaymentLogLane.FromTerminal,
@@ -165,7 +105,7 @@ class CardPaymentOrchestrator(
         when (r) {
             AqsiPaymentResult.Approved -> {
                 paymentEventLogger.info(
-                    "Новый считыватель",
+                    "aQsi",
                     "Оплата подтверждена",
                     lane = CardPaymentLogLane.FromTerminal,
                 )
@@ -173,7 +113,7 @@ class CardPaymentOrchestrator(
             }
             is AqsiPaymentResult.Declined -> {
                 paymentEventLogger.info(
-                    "Новый считыватель",
+                    "aQsi",
                     "Оплата отклонена",
                     r.publicCode,
                     lane = CardPaymentLogLane.FromTerminal,
@@ -182,10 +122,9 @@ class CardPaymentOrchestrator(
                     if (r.publicCode.isBlank()) "declined" else "declined:${r.publicCode}",
                 )
             }
-
             is AqsiPaymentResult.Error -> {
                 paymentEventLogger.error(
-                    "Новый считыватель",
+                    "aQsi",
                     "Ошибка оплаты",
                     r.safeMessage,
                     lane = CardPaymentLogLane.FromTerminal,
@@ -194,7 +133,7 @@ class CardPaymentOrchestrator(
             }
             AqsiPaymentResult.Cancelled -> {
                 paymentEventLogger.info(
-                    "Новый считыватель",
+                    "aQsi",
                     "Оплата отменена",
                     lane = CardPaymentLogLane.FromTerminal,
                 )
@@ -203,23 +142,12 @@ class CardPaymentOrchestrator(
         }
 
     private suspend fun mockPaymentIfEnabled(
-        method: CardPaymentMethod,
         mockMode: CardPaymentMockMode,
         priceRub: Int,
     ): CardPaymentResult? {
-        val matches =
-            when (method) {
-                CardPaymentMethod.Pax -> mockMode === CardPaymentMockMode.TwoCan
-                CardPaymentMethod.Aqsi -> mockMode === CardPaymentMockMode.Aqsi
-            }
-        if (!matches) return null
+        if (mockMode !== CardPaymentMockMode.Aqsi) return null
         val outcome = cardPaymentMockModeRepository.getOutcome()
-        val provider =
-            when (mockMode) {
-                CardPaymentMockMode.TwoCan -> "2can mock"
-                CardPaymentMockMode.Aqsi -> "Новый считыватель mock"
-                CardPaymentMockMode.Disabled -> return null
-            }
+        val provider = "aQsi mock"
         paymentEventLogger.info(
             provider,
             "Mock-оплата запущена",
@@ -238,30 +166,15 @@ class CardPaymentOrchestrator(
                 CardPaymentResult.Success
             }
             CardPaymentMockOutcome.Declined -> {
-                paymentEventLogger.info(
-                    provider,
-                    "Mock-оплата отклонена",
-                    "Тестовый отказ",
-                    lane = CardPaymentLogLane.Mock,
-                )
+                paymentEventLogger.info(provider, "Mock-оплата отклонена", "Тестовый отказ", lane = CardPaymentLogLane.Mock)
                 CardPaymentResult.Failed("mock_declined")
             }
             CardPaymentMockOutcome.Cancelled -> {
-                paymentEventLogger.info(
-                    provider,
-                    "Mock-оплата отменена",
-                    "Тестовая отмена",
-                    lane = CardPaymentLogLane.Mock,
-                )
+                paymentEventLogger.info(provider, "Mock-оплата отменена", "Тестовая отмена", lane = CardPaymentLogLane.Mock)
                 CardPaymentResult.Cancelled
             }
             CardPaymentMockOutcome.Timeout -> {
-                paymentEventLogger.error(
-                    provider,
-                    "Mock-таймаут оплаты",
-                    "Тестовый таймаут",
-                    lane = CardPaymentLogLane.Mock,
-                )
+                paymentEventLogger.error(provider, "Mock-таймаут оплаты", "Тестовый таймаут", lane = CardPaymentLogLane.Mock)
                 CardPaymentResult.Failed("mock_timeout")
             }
         }
@@ -281,14 +194,4 @@ class CardPaymentOrchestrator(
     private companion object {
         const val TAG = "CardPayment"
     }
-}
-
-private object DisabledCardPaymentMockModeRepository : CardPaymentMockModeRepository {
-    override suspend fun getMode(): CardPaymentMockMode = CardPaymentMockMode.Disabled
-
-    override suspend fun setMode(mode: CardPaymentMockMode) = Unit
-
-    override suspend fun getOutcome(): CardPaymentMockOutcome = CardPaymentMockOutcome.Approved
-
-    override suspend fun setOutcome(outcome: CardPaymentMockOutcome) = Unit
 }

@@ -37,7 +37,8 @@ import com.viwa.android.hardware.rfid.ViwaRfidProbeManager
 import com.viwa.android.hardware.rfid.ViwaRfidTrafficLogger
 import com.viwa.android.hardware.serial.PortRole
 import com.viwa.android.hardware.serial.SerialPortManager
-import com.viwa.android.services.payment.PaymentTerminalService
+import com.viwa.android.data.payment.aqsi.AqsiUsbPaymentManager
+import com.viwa.android.services.payment.ControllerSbpNotifyService
 import com.viwa.android.services.payment.TerminalProductType
 import com.viwa.android.services.calibration.WaterCalibrationService
 import com.viwa.android.services.calibration.WaterPourResult
@@ -135,7 +136,7 @@ data class ServiceUiState(
     val controllerTestRunning: Boolean = false,
     val controllerTestBanner: String? = null,
     val controllerTestIsError: Boolean = false,
- /** Последний текст статуса PAX из [PaymentTerminalService] (0x56). */
+ /** Последний текст статуса aQsi USB терминала. */
     val paymentTerminalTestBanner: String? = null,
  // Интеграции (модуль C )
     val maxExtApiToken: String = "",
@@ -259,7 +260,8 @@ constructor(
     private val controllerHardware: ControllerHardwareManager,
     private val drinkPreparing: ViwaDrinkPreparingService,
     private val waterCounter: ViwaWaterCounterService,
-    private val paymentTerminalService: PaymentTerminalService,
+    private val aqsiUsbPaymentManager: AqsiUsbPaymentManager,
+    private val controllerSbpNotifyService: ControllerSbpNotifyService,
     private val maxRepository: MaxRepository,
     private val sbpRepository: SBPRepository,
     private val nanoKassaRepository: NanoKassaRepository,
@@ -1729,7 +1731,7 @@ constructor(
     private fun observeTerminalVendStatus() {
         viewModelScope.launch {
             try {
-                paymentTerminalService.vendStatusText.collect { text ->
+                aqsiUsbPaymentManager.terminalStatusFlow.collect { text ->
                     _terminalVendStatusLine.value = text
                 }
             } catch (e: Exception) {
@@ -1898,16 +1900,15 @@ constructor(
     fun runPaymentTerminal048Demo() {
         viewModelScope.launch {
             try {
-                paymentTerminalService.sendSumToTerminal(
+                controllerSbpNotifyService.notifySbpPayment(
                     TerminalProductType.Drink,
                     price = 100,
                     productNumber = 1,
-                    sbp = false,
                 )
                 _state.update {
                     it.copy(
                         paymentTerminalTestBanner =
-                            "SendSumToPaymentTerminal (0x48) отправлен — см. logcat ViwaController / PaymentTerminal",
+                            "SendSumToPaymentTerminal (0x48, СБП) отправлен — см. logcat ViwaController / SbpNotify",
                     )
                 }
             } catch (e: Exception) {
