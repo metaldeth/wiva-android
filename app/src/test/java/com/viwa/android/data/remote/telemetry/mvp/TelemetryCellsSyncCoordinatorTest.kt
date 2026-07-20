@@ -344,6 +344,31 @@ class TelemetryCellsSyncCoordinatorTest {
     }
 
     @Test
+    fun `calibration report syncs controller from snapshot before uplink`() = runTest {
+        // given — snapshot has dashboard value 180, controller still at stale 3
+        repository.replaceSnapshot(
+            TelemetryCellsSnapshot(
+                schemaHash = "hash",
+                contentRevision = 2,
+                machineCalibration = com.viwa.android.domain.model.MachineCalibration(waterPumpTenths = 180),
+            ),
+        )
+        coEvery { waterCalibrationService.resolvePumpTenthsForUplink() } returns 180
+        coEvery { waterCalibrationService.readPumpTenths() } returns Result.success(3)
+        val calibrationPayloadSlot = slot<kotlinx.serialization.json.JsonObject>()
+        coEvery {
+            wsManager.sendEnvelope("machine.calibration.report", capture(calibrationPayloadSlot))
+        } returns Result.success(Unit)
+
+        // when
+        coordinator.onWebSocketHello()
+
+        // then
+        coVerify { waterCalibrationService.writePumpTenths(180) }
+        assertEquals("180", calibrationPayloadSlot.captured["waterPumpTenths"]!!.jsonPrimitive.content)
+    }
+
+    @Test
     fun `snapshot with machineCalibration writes pump tenths to controller`() = runTest {
         // given
         coEvery { waterCalibrationService.readPumpTenths() } returns Result.success(5)

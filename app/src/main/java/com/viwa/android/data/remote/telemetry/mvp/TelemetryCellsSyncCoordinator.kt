@@ -59,6 +59,7 @@ constructor(
         // Wait for optional post-schema cells.snapshot so dashboard waterPumpTenths wins
         // before we uplink controller value (avoids overwriting offline PATCH).
         delay(POST_SCHEMA_CALIBRATION_REPORT_DELAY_MS)
+        syncControllerFromSnapshotBeforeReport()
         sendMachineCalibrationReport()
     }
 
@@ -110,12 +111,31 @@ constructor(
     }
 
     private suspend fun sendMachineCalibrationReport() {
+        syncControllerFromSnapshotBeforeReport()
         val tenths = waterCalibrationService.resolvePumpTenthsForUplink()
         val payloadJson = codec.encodeMachineCalibrationReportPayload(tenths)
         sendCellsMessage(type = "machine.calibration.report", payloadJson = payloadJson)
             .onFailure { Timber.w(it, "TelemetryCellsSync: machine calibration report failed") }
             .onSuccess {
                 Timber.i("TelemetryCellsSync: machine calibration report sent waterPumpTenths=$tenths")
+            }
+    }
+
+    /** Apply snapshot calibration to controller before uplink (avoids stale controller clobbering DB). */
+    private suspend fun syncControllerFromSnapshotBeforeReport() {
+        val snapshot = repository.getSnapshot() ?: return
+        val remoteTenths = snapshot.machineCalibration?.waterPumpTenths ?: return
+        val clamped = remoteTenths.coerceIn(1, 255)
+        val currentTenths =
+            waterCalibrationService.readPumpTenths().getOrNull()
+                ?: waterCalibrationService.resolvePumpTenthsForUplink()
+        if (currentTenths == clamped) return
+        waterCalibrationService.writePumpTenths(clamped)
+            .onFailure {
+                Timber.w(it, "TelemetryCellsSync: failed to sync controller waterPumpTenths=$clamped before report")
+            }
+            .onSuccess {
+                Timber.i("TelemetryCellsSync: synced controller waterPumpTenths=$clamped before calibration report")
             }
     }
 
@@ -242,6 +262,6 @@ constructor(
             cell.conversionFactor != TelemetryCell.DEFAULT_CONVERSION_FACTOR
 
     private companion object {
-        const val POST_SCHEMA_CALIBRATION_REPORT_DELAY_MS = 1_500L
+        const val POST_SCHEMA_CALIBRATION_REPORT_DELAY_MS = 3_000L
     }
 }
