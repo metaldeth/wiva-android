@@ -31,6 +31,7 @@ constructor(
     private val apiClient: MvpTelemetryApiClient,
     private val wsManager: MvpTelemetryWebSocketManager,
     private val cellsSyncCoordinator: TelemetryCellsSyncCoordinator,
+    private val salesSyncCoordinator: TelemetrySalesSyncCoordinator,
     private val configRepository: ConfigRepository,
     private val machineSecretStore: MachineSecretStore,
     private val jwtCache: MachineJwtCache,
@@ -41,6 +42,7 @@ constructor(
         wsManager.cellsSyncHandler =
             object : MvpTelemetryCellsSyncHandler {
                 override suspend fun onWebSocketHello() {
+                    salesSyncCoordinator.onWebSocketHello()
                     cellsSyncCoordinator.onWebSocketHello()
                 }
 

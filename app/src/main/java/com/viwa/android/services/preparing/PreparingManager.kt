@@ -15,6 +15,10 @@ import com.viwa.android.services.drink.DrinkPreparationCalculations
 import com.viwa.android.services.drink.ViwaDrinkPreparingService
 import com.viwa.android.services.drink.ViwaDrinkSelectionService
 import com.viwa.android.hardware.FlowStripRgbCoordinator
+import com.viwa.android.data.local.sales.PendingSale
+import com.viwa.android.data.remote.telemetry.mvp.TelemetryIsoTimestamps
+import com.viwa.android.data.remote.telemetry.mvp.TelemetrySalesSyncCoordinator
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +48,7 @@ constructor(
     private val preparingTimeHistoryStore: PreparingTimeHistoryStore,
     private val waterCounter: ViwaWaterCounterService,
     private val flowStripRgbCoordinator: FlowStripRgbCoordinator,
+    private val salesSyncCoordinator: TelemetrySalesSyncCoordinator,
     @AppIoScope private val scope: CoroutineScope,
 ) {
     private val mutex = Mutex()
@@ -144,6 +149,8 @@ constructor(
                     actualWaterMl = actualWaterMl,
                     flowRateMlPerSec = flowRate,
                     expectedTimeSec = preparingTime,
+                    saleTotalPriceRub = saleTotalPriceRub,
+                    salePayMethod = salePayMethod,
                 )
 
             emit(PreparingState.Begin(preparingTime))
@@ -163,6 +170,7 @@ constructor(
                         _customerPhase.value = CustomerPreparingPhase.DrinkReady
                         flowStripRgbCoordinator.scheduleGreenForTenSecondsThenRestoreSaved()
                         persistPreparingTimeRecord()
+                        enqueueSuccessfulSaleReport()
                     } catch (e: Exception) {
                         Timber.tag(TAG).e(e, "await DrinkPreparingSuccess")
                     } finally {
@@ -178,6 +186,25 @@ constructor(
     private fun emit(state: PreparingState) {
         onStateChanged(state)
     }
+
+    private suspend fun enqueueSuccessfulSaleReport() {
+        val context = currentPreparingContext ?: return
+        val pendingSale =
+            PendingSale(
+                saleId = UUID.randomUUID().toString(),
+                soldAt = TelemetryIsoTimestamps.nowUtc(),
+                drinkId = context.tasteId,
+                volumeMl = context.volumeMl,
+                amountRub = context.saleTotalPriceRub,
+                payMethod = resolveSalePayMethod(context.salePayMethod),
+            )
+        runCatching {
+            salesSyncCoordinator.enqueueAndTrySend(pendingSale)
+        }.onFailure { Timber.tag(TAG).e(it, "enqueue sale.report failed") }
+    }
+
+    private fun resolveSalePayMethod(salePayMethod: String?): String =
+        salePayMethod?.takeIf { it.isNotBlank() } ?: "FREE"
 
     private suspend fun persistPreparingTimeRecord() {
         val context = currentPreparingContext ?: return
@@ -218,6 +245,8 @@ constructor(
         val actualWaterMl: Double,
         val flowRateMlPerSec: Double,
         val expectedTimeSec: Int,
+        val saleTotalPriceRub: Double,
+        val salePayMethod: String?,
     )
 
     companion object {

@@ -66,7 +66,8 @@ constructor(
         private const val POUR_TIMEOUT_MS = 120_000L
         private const val READ_PUMP_TIMEOUT_MS = 3_000L
         private const val ACK_TIMEOUT_MS = 2_000L
-        const val DEFAULT_WATER_PUMP_TENTHS = 3
+        /** Совпадает с default прошивки Vita Flow: koef_w100=180 → Koef_Water=1.80 */
+        const val DEFAULT_WATER_PUMP_TENTHS = 180
     }
 
     suspend fun loadCalibration(): WaterCalibrationData {

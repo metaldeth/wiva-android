@@ -84,6 +84,9 @@ object JsonStoreKeys {
  /** JSON-массив фактических замеров готовки (история для сервисного экрана времени). */
     const val PREPARING_TIME_HISTORY = "preparing_time_history"
 
+ /** JSON-массив [com.viwa.android.data.local.sales.PendingSale] — durable uplink sale.report. */
+    const val PENDING_SALES = "pending_sales"
+
  /**
  * Авто-выход с экрана готовки через N минут (строка с int). `0` — только ручной/секретный выход.
  * Ключ отсутствует — **5** минут.

@@ -827,7 +827,7 @@ constructor(
                         s,
                         onNavigateToPreparing,
                         saleTotalPriceRub = 0.0,
-                        salePayMethod = null,
+                        salePayMethod = "SUBSCRIBE",
                     )
                 } catch (e: Exception) {
                     Timber.e(e, "primaryAction pour by subscription")
@@ -882,7 +882,14 @@ constructor(
                 )
             }
             try {
-                runChooseAndNavigate(container, volume, s, onNavigateToPreparing)
+                runChooseAndNavigate(
+                    container,
+                    volume,
+                    s,
+                    onNavigateToPreparing,
+                    saleTotalPriceRub = 0.0,
+                    salePayMethod = "FREE",
+                )
             } catch (e: Exception) {
                 Timber.e(e, "devPourWithoutPayment")
                 _state.update {
@@ -1241,7 +1248,7 @@ constructor(
                 val subClientId = s.scannedSubscriptionClientId
  // Налив по остатку карты (salePayMethod == null): и подписка, и бесплатный литр — иначе телеметрия не уходит.
  // Телеметрия best-effort: ошибка регистрации машины не должна блокировать навигацию на экран готовки.
-                if (!subClientId.isNullOrBlank() && salePayMethod == null) {
+                if (!subClientId.isNullOrBlank() && salePayMethod == "SUBSCRIBE") {
                     runCatching {
                         val machineId = telemetryService.loadMachineRegistration().machineId.toIntOrNull() ?: 0
                         telemetryService.sendUseSubscriptionSaleTopic(

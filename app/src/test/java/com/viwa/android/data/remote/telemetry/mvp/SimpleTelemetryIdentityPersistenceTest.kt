@@ -26,6 +26,7 @@ class SimpleTelemetryIdentityPersistenceTest {
                 apiClient = mockk(relaxed = true),
                 wsManager = mockk(relaxed = true),
                 cellsSyncCoordinator = mockk(relaxed = true),
+                salesSyncCoordinator = mockk(relaxed = true),
                 configRepository = configRepository,
                 machineSecretStore = InMemoryMachineSecretStore(),
                 jwtCache = MachineJwtCache(SystemEpochMillisClock()),
